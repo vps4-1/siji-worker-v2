@@ -297,10 +297,7 @@ function getConfiguredRSSFeeds(env) {
     .map(s => s.trim())
     .filter(Boolean);
   const combinedFeeds = [...new Set([...DEFAULT_RSS_FEEDS, ...envFeeds])];
-  const maxFeeds = parseInt(env.MAX_RSS_FEEDS || '', 10);
-  if (Number.isFinite(maxFeeds) && maxFeeds > 0) {
-    return combinedFeeds.slice(0, maxFeeds);
-  }
+  // 移除RSS源数量限制，支持处理所有配置的源
   return combinedFeeds;
 }
 
@@ -473,10 +470,7 @@ function getConfiguredRSSFeeds(env) {
     .map(s => s.trim())
     .filter(Boolean);
   const combinedFeeds = [...new Set([...DEFAULT_RSS_FEEDS, ...envFeeds])];
-  const maxFeeds = parseInt(env.MAX_RSS_FEEDS || '', 10);
-  if (Number.isFinite(maxFeeds) && maxFeeds > 0) {
-    return combinedFeeds.slice(0, maxFeeds);
-  }
+  // 移除RSS源数量限制，支持处理所有配置的源
   return combinedFeeds;
 }
 // ==================== 去重辅助函数 ====================
@@ -1103,18 +1097,20 @@ async function callClaudeAI(env, title, description) {
 要求：
 1. 检测原文语言（中文或英文）
 
-2. 生成两个版本的摘要（重要：不要使用"本文"、"文章"、"该研究"等开头）：
+2. 生成两个版本的摘要（重要：不要使用"本文"、"文章"、"该研究"、"本研究"、"文章讨论"等开头）：
+   - 长摘要（500字）：全面覆盖要点，包含背景、方法、结论、影响
    - 短摘要（200字）：直接陈述核心内容，像新闻导语，高信息密度
-   - 长摘要（500字）：全面覆盖要点，包含背景、方法、结论
 
-3. 如果原文是英文：生成中文标题、中文短摘要、中文长摘要、英文短摘要、英文长摘要
-4. 如果原文是中文：保留中文标题、生成中文短摘要、中文长摘要、英文标题、英文短摘要、英文长摘要
-5. 提取 3-5 个中文关键词和 3-5 个英文关键词
-6. 如果完全不相关，返回 relevant: false
+3. 如果原文是英文：生成中文标题、中文长摘要、中文短摘要、英文长摘要、英文短摘要
+4. 如果原文是中文：保留中文标题、生成中文长摘要、中文短摘要、英文标题、英文长摘要、英文短摘要
+5. 专业术语处理：遇到AI/ML专业术语时，中文后加括号注明英文，如"大语言模型(Large Language Model)"、"强化学习(Reinforcement Learning)"
+6. 提取 3-5 个中文关键词和 3-5 个英文关键词
+7. 如果完全不相关，返回 relevant: false
 
-示例：
-短摘要：OpenAI 发布 GPT-4 Turbo，上下文窗口扩展至 128K tokens，支持最新知识库至 2024年4月...
-长摘要：OpenAI 发布 GPT-4 Turbo，上下文窗口扩展至 128K tokens，支持最新知识库至 2024年4月。新模型在保持 GPT-4 性能的同时，显著降低了成本，输入价格降至每千 tokens 0.01 美元，输出价格为 0.03 美元。此外，GPT-4 Turbo 还新增了图像理解、文本转语音、DALL·E 3 集成等功能...
+示例格式：
+长摘要示例：OpenAI发布GPT-4 Turbo，上下文窗口扩展至128K tokens，支持最新知识库至2024年4月。新模型在保持GPT-4性能的同时，显著降低了成本，输入价格降至每千tokens 0.01美元，输出价格为0.03美元。此外，GPT-4 Turbo还新增了图像理解、文本转语音、DALL·E 3集成等功能...
+
+短摘要示例：OpenAI发布GPT-4 Turbo，上下文窗口扩展至128K tokens，成本大幅降低，新增多模态功能...
 
 **必须严格返回纯 JSON**：
 {
@@ -1177,10 +1173,21 @@ async function callOpenRouterAI(env, title, description) {
 
 要求:
 1. 检测原文语言（中文或英文）
-2. 如果原文是英文：生成中文标题、中文摘要（300字）、英文摘要（300字）
-3. 如果原文是中文：保持中文标题、生成中文摘要（300字）、翻译英文标题和英文摘要（300字）
-4. 提取 3-5 个中文关键词和 3-5 个英文关键词
-5. 如果完全不相关，返回 relevant: false
+
+2. 生成两个版本的摘要（重要：不要使用"本文"、"文章"、"该研究"、"本研究"、"文章讨论"等开头）：
+   - 长摘要（500字）：全面覆盖要点，包含背景、方法、结论、影响
+   - 短摘要（200字）：直接陈述核心内容，像新闻导语，高信息密度
+
+3. 如果原文是英文：生成中文标题、中文长摘要、中文短摘要、英文长摘要、英文短摘要
+4. 如果原文是中文：保留中文标题、生成中文长摘要、中文短摘要、英文标题、英文长摘要、英文短摘要
+5. 专业术语处理：遇到AI/ML专业术语时，中文后加括号注明英文，如"大语言模型(Large Language Model)"、"强化学习(Reinforcement Learning)"
+6. 提取 3-5 个中文关键词和 3-5 个英文关键词
+7. 如果完全不相关，返回 relevant: false
+
+示例格式：
+长摘要示例：OpenAI发布GPT-4 Turbo，上下文窗口扩展至128K tokens，支持最新知识库至2024年4月。新模型在保持GPT-4性能的同时，显著降低了成本，输入价格降至每千tokens 0.01美元，输出价格为0.03美元。此外，GPT-4 Turbo还新增了图像理解、文本转语音、DALL·E 3集成等功能...
+
+短摘要示例：OpenAI发布GPT-4 Turbo，上下文窗口扩展至128K tokens，成本大幅降低，新增多模态功能...
 
 **重要**: 必须严格返回纯 JSON:
 {
@@ -1188,8 +1195,10 @@ async function callOpenRouterAI(env, title, description) {
   "original_language": "en",
   "title_zh": "中文标题",
   "title_en": "English Title",
-  "summary_zh": "约300字的中文摘要",
-  "summary_en": "Approximately 300-word English summary",
+  "summary_zh": "长摘要（500字左右）",
+  "summary_zh_short": "短摘要（200字左右）",
+  "summary_en": "Long summary (around 500 words)",
+  "summary_en_short": "Short summary (around 200 words)",
   "keywords_zh": ["关键词1", "关键词2", "关键词3"],
   "keywords_en": ["keyword1", "keyword2", "keyword3"]
 }`;

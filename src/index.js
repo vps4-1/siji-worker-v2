@@ -111,36 +111,42 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 内容判断和快速筛选 - 追求速度和成本
+    // 内容判断和快速筛选 - 追求速度和低成本
     screening: [
-      'groq/llama-3.1-70b-versatile',   // Groq - 极快推理，适合批量筛选
-      'deepseek/deepseek-chat',         // DeepSeek - 性价比高
-      'qwen/qwen-2.5-72b-instruct'      // Qwen - 备用快速选项
+      'groq/llama-3.1-70b-versatile',   // Groq - 极快推理，批量筛选首选
+      'deepseek/deepseek-chat',         // DeepSeek - 高性价比
+      'moonshot/moonshot-v1-8k',        // Kimi - 备用选项
+      'qwen/qwen-2.5-72b-instruct'      // Qwen - 最后备用
     ],
     
-    // 详细摘要生成 - 追求质量和中文理解
+    // 详细摘要生成 - 优先性价比，质量兼顾
     summarization: [
-      'google/gemini-2.5-pro',          // Gemini 2.5 Pro - 最新最强，质量优先
-      'moonshot/moonshot-v1-8k',        // Kimi - 中文理解极佳
-      'anthropic/claude-3.5-sonnet',    // Claude - 高质量内容生成
-      'deepseek/deepseek-chat'          // DeepSeek - 技术内容理解强
+      'moonshot/moonshot-v1-8k',        // Kimi - 中文理解优秀，性价比好
+      'deepseek/deepseek-chat',         // DeepSeek - 技术内容理解强，便宜
+      'groq/llama-3.1-70b-versatile',   // Groq - 速度快，成本可控
+      'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文能力强
+      'google/gemini-2.5-pro',          // Gemini 2.5 Pro - 质量高但较贵
+      'anthropic/claude-3.5-sonnet'     // Claude - 最后备用（最贵）
     ],
     
-    // 翻译和术语标注 - 平衡质量和成本  
+    // 翻译和术语标注 - 中文优先，成本控制
     translation: [
-      'moonshot/moonshot-v1-8k',        // Kimi - 中英文理解平衡
-      'google/gemini-2.5-pro',          // Gemini 2.5 Pro - 多语言能力强
-      'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文术语准确
-      'groq/llama-3.1-70b-versatile'    // Groq - 快速处理
+      'moonshot/moonshot-v1-8k',        // Kimi - 中英文理解平衡，首选
+      'deepseek/deepseek-chat',         // DeepSeek - 术语理解准确，便宜
+      'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文术语专业
+      'groq/llama-3.1-70b-versatile',   // Groq - 快速处理
+      'google/gemini-2.5-pro'           // Gemini 2.5 Pro - 备用（较贵）
+      // Claude 完全移除，太贵
     ],
     
-    // 默认降级序列
+    // 默认降级序列 - 成本优先
     fallback: [
-      'moonshot/moonshot-v1-8k',
-      'groq/llama-3.1-70b-versatile', 
-      'deepseek/deepseek-chat',
-      'qwen/qwen-2.5-72b-instruct',
-      'anthropic/claude-3.5-sonnet'
+      'moonshot/moonshot-v1-8k',        // Kimi - 综合性能好，便宜
+      'deepseek/deepseek-chat',         // DeepSeek - 技术内容强，便宜
+      'groq/llama-3.1-70b-versatile',   // Groq - 速度快
+      'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文能力
+      'google/gemini-2.5-pro'           // Gemini 2.5 Pro - 最后备用
+      // Claude 移除
     ]
   }
 };

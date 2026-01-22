@@ -1,0 +1,44 @@
+name = "siji-worker-v2"
+main = "src/index.js"
+compatibility_date = "2026-01-14"
+
+[observability]
+enabled = true
+
+[[kv_namespaces]]
+binding = "ARTICLES_KV"
+id = "206167570b0b48a3a1ef05c516bd2d24"
+
+[triggers]
+crons = [
+  "0 0 * * *",
+  "0 4 * * *",
+  "0 8 * * *",
+  "0 15 * * *"
+]
+
+[vars]
+AI_PROVIDER = "openrouter"
+DAILY_TARGET = "10"
+TELEGRAM_CHANNEL = "@sijigpt"
+
+# 模型优先级：Claude > Grok > 千问
+OPENROUTER_MODELS = "anthropic/claude-3.5-sonnet,x-ai/grok-2-1212,qwen/qwen-2.5-72b-instruct"
+
+RSS_FEEDS = """
+https://openai.com/blog/rss.xml,
+https://blog.google/technology/ai/rss/,
+https://www.deepmind.com/blog/rss.xml,
+https://www.microsoft.com/en-us/research/feed/,
+https://huggingface.co/blog/feed.xml,
+https://aws.amazon.com/blogs/machine-learning/feed/,
+https://blog.langchain.dev/rss/,
+https://lilianweng.github.io/index.xml,
+https://karpathy.github.io/feed.xml,
+https://distill.pub/rss.xml,
+https://news.ycombinator.com/rss,
+https://arxiv.org/rss/cs.AI,
+https://blog.replit.com/feed.xml,
+https://simonwillison.net/atom/entries/,
+https://sebastianraschka.com/blog/index.xml
+"""

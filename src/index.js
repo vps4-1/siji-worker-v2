@@ -111,10 +111,10 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: [
-    'anthropic/claude-3.5-sonnet',
-    'google/gemini-pro-1.5',
-    'deepseek/deepseek-chat',
-    'qwen/qwen-2.5-72b-instruct'
+    'google/gemini-2.5-pro',
+    'x-ai/grok-4',
+    'qwen/qwen-2.5-72b-instruct',
+    'deepseek/deepseek-chat'
   ]
 };
 
@@ -127,6 +127,358 @@ const CLAUDE_AGENT_CONFIG = {
     customPrompts: true
   }
 };
+
+const DEFAULT_RSS_FEEDS = [
+  'https://www.404media.co/rss',
+  'https://magazine.sebastianraschka.com/feed',
+  'https://aiacceleratorinstitute.com/rss/',
+  'https://ai-techpark.com/category/ai/feed/',
+  'https://knowtechie.com/category/ai/feed/',
+  'https://aibusiness.com/rss.xml',
+  'https://aimodels.substack.com/feed',
+  'https://www.artificialintelligence-news.com/feed/rss/',
+  'https://venturebeat.com/category/ai/feed/',
+  'https://ainowinstitute.org/category/news/feed',
+  'https://siliconangle.com/category/ai/feed',
+  'https://aisnakeoil.substack.com/feed',
+  'https://eng.uber.com/category/articles/ai/feed',
+  'https://www.anaconda.com/blog/feed',
+  'https://analyticsindiamag.com/feed/',
+  'https://stability.ai/blog?format=rss',
+  'https://feeds.arstechnica.com/arstechnica/index',
+  'https://theconversation.com/europe/topics/artificial-intelligence-ai-90/articles.atom',
+  'https://www.theguardian.com/technology/artificialintelligenceai/rss',
+  'https://spacenews.com/tag/artificial-intelligence/feed/',
+  'https://futurism.com/categories/ai-artificial-intelligence/feed',
+  'https://www.wired.com/feed/tag/ai/latest/rss',
+  'https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml',
+  'https://www.techrepublic.com/rssfeeds/topic/artificial-intelligence/',
+  'https://medium.com/feed/artificialis',
+  'https://siliconangle.com/category/big-data/feed',
+  'https://machinelearningmastery.com/blog/feed',
+  'https://davidstutz.de/category/blog/feed',
+  'https://www.together.xyz/blog?format=rss',
+  'https://neptune.ai/blog/feed',
+  'https://blog.eleuther.ai/index.xml',
+  'https://pyimagesearch.com/blog/feed',
+  'https://feeds.bloomberg.com/technology/news.rss',
+  'https://feeds.businessinsider.com/custom/all',
+  'https://www.wired.com/feed/category/business/latest/rss',
+  'https://every.to/chain-of-thought/feed.xml',
+  'https://huyenchip.com/feed',
+  'http://www.computerworld.com/index.rss',
+  'https://txt.cohere.ai/rss/',
+  'https://news.crunchbase.com/feed',
+  'https://arxiv.org/rss/cs.CL',
+  'https://arxiv.org/rss/cs.CV',
+  'https://arxiv.org/rss/cs.LG',
+  'https://dagshub.com/blog/rss/',
+  'https://www.darkreading.com/rss_simple.asp',
+  'https://www.databricks.com/feed',
+  'https://datafloq.com/feed/?post_type=post',
+  'https://datamachina.substack.com/feed',
+  'https://www.datanami.com/feed/',
+  'https://debuggercafe.com/feed/',
+  'https://deephaven.io/blog/rss.xml',
+  'https://deepmind.com/blog/feed/basic/',
+  'https://tech.eu/category/deep-tech/feed',
+  'https://departmentofproduct.substack.com/feed',
+  'https://dev.to/feed',
+  'https://www.eetimes.com/feed',
+  'https://www.engadget.com/rss.xml',
+  'https://eugeneyan.com/rss/',
+  'https://explosion.ai/feed',
+  'https://www.freethink.com/feed/all',
+  'https://www.generational.pub/feed',
+  'https://www.forrester.com/blogs/category/artificial-intelligence-ai/feed',
+  'https://www.ghacks.net/feed/',
+  'https://gizmodo.com/rss',
+  'https://globalnews.ca/tag/artificial-intelligence/feed',
+  'http://googleaiblog.blogspot.com/atom.xml',
+  'https://gradientflow.com/feed/',
+  'https://hackernoon.com/tagged/ai/feed',
+  'https://feeds.feedburner.com/HealthTechMagazine',
+  'https://huggingface.co/blog/feed.xml',
+  'https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss',
+  'https://feed.infoq.com/ai-ml-data-eng/',
+  'https://www.infoworld.com/category/analytics/index.rss',
+  'https://www.infoworld.com/category/machine-learning/index.rss',
+  'https://insidebigdata.com/feed',
+  'https://www.interconnects.ai/feed',
+  'https://www.ibtimes.com/rss',
+  'https://www.jmlr.org/jmlr.xml',
+  'https://www.kdnuggets.com/feed',
+  'https://blog.langchain.dev/rss/',
+  'https://lastweekin.ai/feed',
+  'https://www.latent.space/feed',
+  'https://sifted.eu/feed/?post_type=article',
+  'https://www.zdnet.com/topic/artificial-intelligence/rss.xml',
+  'https://www.zdnet.com/topic/big-data/rss.xml',
+  'https://lightning.ai/pages/feed/',
+  'https://www.bmc.com/blogs/categories/machine-learning-big-data/feed',
+  'https://blog.ml.cmu.edu/feed',
+  'https://www.nature.com/subjects/machine-learning.rss',
+  'https://www.marktechpost.com/feed',
+  'https://www.microsoft.com/en-us/research/feed/',
+  'https://mila.quebec/en/feed/',
+  'https://news.mit.edu/topic/mitmachine-learning-rss.xml',
+  'https://www.technologyreview.com/feed/',
+  'https://foundation.mozilla.org/en/blog/rss/',
+  'https://phys.org/rss-feed/technology-news/machine-learning-ai/',
+  'https://techxplore.com/rss-feed/machine-learning-ai-news/',
+  'https://www.assemblyai.com/blog/rss/',
+  'https://developer.nvidia.com/blog/feed',
+  'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml',
+  'https://www.oneusefulthing.org/feed',
+  'https://openai.com/blog/rss/',
+  'https://blog.paperspace.com/rss/',
+  'https://www.philschmid.de/feed.xml',
+  'https://erichartford.com/rss.xml',
+  'https://minimaxir.com/post/index.xml',
+  'https://www.producthunt.com/feed',
+  'https://feeds.feedburner.com/PythonInsider',
+  'https://api.quantamagazine.org/feed',
+  'https://medium.com/feed/radix-ai-blog',
+  'https://feeds.feedburner.com/RBloggers',
+  'https://replicate.com/blog/rss',
+  'https://notes.replicatecodex.com/rss/',
+  'https://restofworld.org/feed/latest',
+  'https://www.sciencedaily.com/rss/computers_math/robotics.xml',
+  'https://tech.eu/category/robotics/feed',
+  'http://rss.sciam.com/ScientificAmerican-Global',
+  'https://www.semianalysis.com/feed',
+  'https://www.siliconrepublic.com/feed',
+  'https://simonwillison.net/atom/everything/',
+  'https://stackoverflow.blog/feed/',
+  'https://crfm.stanford.edu/feed',
+  'https://arxiv.org/rss/stat.ML',
+  'https://medium.com/feed/@netflixtechblog',
+  'https://medium.com/feed/@odsc',
+  'https://syncedreview.com/feed',
+  'https://synthedia.substack.com/feed',
+  'https://techcrunch.com/feed/',
+  'https://www.techmeme.com/feed.xml',
+  'https://techmonitor.ai/feed',
+  'https://www.reutersagency.com/feed/?best-topics=tech',
+  'https://www.techspot.com/backend.xml',
+  'https://bdtechtalks.com/feed/',
+  'https://thealgorithmicbridge.substack.com/feed',
+  'https://bair.berkeley.edu/blog/feed.xml',
+  'https://the-decoder.com/feed/',
+  'https://thegradient.pub/rss/',
+  'https://www.theinformation.com/feed',
+  'https://www.theintrinsicperspective.com/feed/',
+  'https://thenewstack.io/feed',
+  'https://thenextweb.com/neural/feed',
+  'https://www.theregister.com/software/ai_ml/headlines.atom',
+  'https://rss.beehiiv.com/feeds/2R3C6Bt5wj.xml',
+  'https://thesequence.substack.com/feed',
+  'https://www.thestack.technology/latest/rss/',
+  'https://blog.tensorflow.org/feeds/posts/default?alt=rss',
+  'https://www.thetradenews.com/feed/',
+  'https://www.theverge.com/rss/index.xml',
+  'https://pub.towardsai.net/feed',
+  'https://towardsdatascience.com/feed',
+  'https://www.unite.ai/feed/',
+  'https://unwindai.substack.com/feed',
+  'https://www.vice.com/en/rss/topic/ai',
+  'https://visualstudiomagazine.com/rss-feeds/news.aspx',
+  'https://voicebot.ai/feed/',
+  'https://wandb.ai/fully-connected/rss.xml',
+  'https://blogs.windows.com/feed',
+  'https://blog.wolfram.com/feed/',
+  'https://aihub.org/feed?cat=-473',
+  'https://aijobs.net/feed/'
+];
+
+function getConfiguredRSSFeeds(env) {
+  const envFeeds = (env.RSS_FEEDS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  const combinedFeeds = [...new Set([...DEFAULT_RSS_FEEDS, ...envFeeds])];
+  const maxFeeds = parseInt(env.MAX_RSS_FEEDS || '', 10);
+  if (Number.isFinite(maxFeeds) && maxFeeds > 0) {
+    return combinedFeeds.slice(0, maxFeeds);
+  }
+  return combinedFeeds;
+}
+
+const DEFAULT_RSS_FEEDS = [
+  'https://www.404media.co/rss',
+  'https://magazine.sebastianraschka.com/feed',
+  'https://aiacceleratorinstitute.com/rss/',
+  'https://ai-techpark.com/category/ai/feed/',
+  'https://knowtechie.com/category/ai/feed/',
+  'https://aibusiness.com/rss.xml',
+  'https://aimodels.substack.com/feed',
+  'https://www.artificialintelligence-news.com/feed/rss/',
+  'https://venturebeat.com/category/ai/feed/',
+  'https://ainowinstitute.org/category/news/feed',
+  'https://siliconangle.com/category/ai/feed',
+  'https://aisnakeoil.substack.com/feed',
+  'https://eng.uber.com/category/articles/ai/feed',
+  'https://www.anaconda.com/blog/feed',
+  'https://analyticsindiamag.com/feed/',
+  'https://stability.ai/blog?format=rss',
+  'https://feeds.arstechnica.com/arstechnica/index',
+  'https://theconversation.com/europe/topics/artificial-intelligence-ai-90/articles.atom',
+  'https://www.theguardian.com/technology/artificialintelligenceai/rss',
+  'https://spacenews.com/tag/artificial-intelligence/feed/',
+  'https://futurism.com/categories/ai-artificial-intelligence/feed',
+  'https://www.wired.com/feed/tag/ai/latest/rss',
+  'https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml',
+  'https://www.techrepublic.com/rssfeeds/topic/artificial-intelligence/',
+  'https://medium.com/feed/artificialis',
+  'https://siliconangle.com/category/big-data/feed',
+  'https://machinelearningmastery.com/blog/feed',
+  'https://davidstutz.de/category/blog/feed',
+  'https://www.together.xyz/blog?format=rss',
+  'https://neptune.ai/blog/feed',
+  'https://blog.eleuther.ai/index.xml',
+  'https://pyimagesearch.com/blog/feed',
+  'https://feeds.bloomberg.com/technology/news.rss',
+  'https://feeds.businessinsider.com/custom/all',
+  'https://www.wired.com/feed/category/business/latest/rss',
+  'https://every.to/chain-of-thought/feed.xml',
+  'https://huyenchip.com/feed',
+  'http://www.computerworld.com/index.rss',
+  'https://txt.cohere.ai/rss/',
+  'https://news.crunchbase.com/feed',
+  'https://arxiv.org/rss/cs.CL',
+  'https://arxiv.org/rss/cs.CV',
+  'https://arxiv.org/rss/cs.LG',
+  'https://dagshub.com/blog/rss/',
+  'https://www.darkreading.com/rss_simple.asp',
+  'https://www.databricks.com/feed',
+  'https://datafloq.com/feed/?post_type=post',
+  'https://datamachina.substack.com/feed',
+  'https://www.datanami.com/feed/',
+  'https://debuggercafe.com/feed/',
+  'https://deephaven.io/blog/rss.xml',
+  'https://deepmind.com/blog/feed/basic/',
+  'https://tech.eu/category/deep-tech/feed',
+  'https://departmentofproduct.substack.com/feed',
+  'https://dev.to/feed',
+  'https://www.eetimes.com/feed',
+  'https://www.engadget.com/rss.xml',
+  'https://eugeneyan.com/rss/',
+  'https://explosion.ai/feed',
+  'https://www.freethink.com/feed/all',
+  'https://www.generational.pub/feed',
+  'https://www.forrester.com/blogs/category/artificial-intelligence-ai/feed',
+  'https://www.ghacks.net/feed/',
+  'https://gizmodo.com/rss',
+  'https://globalnews.ca/tag/artificial-intelligence/feed',
+  'http://googleaiblog.blogspot.com/atom.xml',
+  'https://gradientflow.com/feed/',
+  'https://hackernoon.com/tagged/ai/feed',
+  'https://feeds.feedburner.com/HealthTechMagazine',
+  'https://huggingface.co/blog/feed.xml',
+  'https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss',
+  'https://feed.infoq.com/ai-ml-data-eng/',
+  'https://www.infoworld.com/category/analytics/index.rss',
+  'https://www.infoworld.com/category/machine-learning/index.rss',
+  'https://insidebigdata.com/feed',
+  'https://www.interconnects.ai/feed',
+  'https://www.ibtimes.com/rss',
+  'https://www.jmlr.org/jmlr.xml',
+  'https://www.kdnuggets.com/feed',
+  'https://blog.langchain.dev/rss/',
+  'https://lastweekin.ai/feed',
+  'https://www.latent.space/feed',
+  'https://sifted.eu/feed/?post_type=article',
+  'https://www.zdnet.com/topic/artificial-intelligence/rss.xml',
+  'https://www.zdnet.com/topic/big-data/rss.xml',
+  'https://lightning.ai/pages/feed/',
+  'https://www.bmc.com/blogs/categories/machine-learning-big-data/feed',
+  'https://blog.ml.cmu.edu/feed',
+  'https://www.nature.com/subjects/machine-learning.rss',
+  'https://www.marktechpost.com/feed',
+  'https://www.microsoft.com/en-us/research/feed/',
+  'https://mila.quebec/en/feed/',
+  'https://news.mit.edu/topic/mitmachine-learning-rss.xml',
+  'https://www.technologyreview.com/feed/',
+  'https://foundation.mozilla.org/en/blog/rss/',
+  'https://phys.org/rss-feed/technology-news/machine-learning-ai/',
+  'https://techxplore.com/rss-feed/machine-learning-ai-news/',
+  'https://www.assemblyai.com/blog/rss/',
+  'https://developer.nvidia.com/blog/feed',
+  'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml',
+  'https://www.oneusefulthing.org/feed',
+  'https://openai.com/blog/rss/',
+  'https://blog.paperspace.com/rss/',
+  'https://www.philschmid.de/feed.xml',
+  'https://erichartford.com/rss.xml',
+  'https://minimaxir.com/post/index.xml',
+  'https://www.producthunt.com/feed',
+  'https://feeds.feedburner.com/PythonInsider',
+  'https://api.quantamagazine.org/feed',
+  'https://medium.com/feed/radix-ai-blog',
+  'https://feeds.feedburner.com/RBloggers',
+  'https://replicate.com/blog/rss',
+  'https://notes.replicatecodex.com/rss/',
+  'https://restofworld.org/feed/latest',
+  'https://www.sciencedaily.com/rss/computers_math/robotics.xml',
+  'https://tech.eu/category/robotics/feed',
+  'http://rss.sciam.com/ScientificAmerican-Global',
+  'https://www.semianalysis.com/feed',
+  'https://www.siliconrepublic.com/feed',
+  'https://simonwillison.net/atom/everything/',
+  'https://stackoverflow.blog/feed/',
+  'https://crfm.stanford.edu/feed',
+  'https://arxiv.org/rss/stat.ML',
+  'https://medium.com/feed/@netflixtechblog',
+  'https://medium.com/feed/@odsc',
+  'https://syncedreview.com/feed',
+  'https://synthedia.substack.com/feed',
+  'https://techcrunch.com/feed/',
+  'https://www.techmeme.com/feed.xml',
+  'https://techmonitor.ai/feed',
+  'https://www.reutersagency.com/feed/?best-topics=tech',
+  'https://www.techspot.com/backend.xml',
+  'https://bdtechtalks.com/feed/',
+  'https://thealgorithmicbridge.substack.com/feed',
+  'https://bair.berkeley.edu/blog/feed.xml',
+  'https://the-decoder.com/feed/',
+  'https://thegradient.pub/rss/',
+  'https://www.theinformation.com/feed',
+  'https://www.theintrinsicperspective.com/feed/',
+  'https://thenewstack.io/feed',
+  'https://thenextweb.com/neural/feed',
+  'https://www.theregister.com/software/ai_ml/headlines.atom',
+  'https://rss.beehiiv.com/feeds/2R3C6Bt5wj.xml',
+  'https://thesequence.substack.com/feed',
+  'https://www.thestack.technology/latest/rss/',
+  'https://blog.tensorflow.org/feeds/posts/default?alt=rss',
+  'https://www.thetradenews.com/feed/',
+  'https://www.theverge.com/rss/index.xml',
+  'https://pub.towardsai.net/feed',
+  'https://towardsdatascience.com/feed',
+  'https://www.unite.ai/feed/',
+  'https://unwindai.substack.com/feed',
+  'https://www.vice.com/en/rss/topic/ai',
+  'https://visualstudiomagazine.com/rss-feeds/news.aspx',
+  'https://voicebot.ai/feed/',
+  'https://wandb.ai/fully-connected/rss.xml',
+  'https://blogs.windows.com/feed',
+  'https://blog.wolfram.com/feed/',
+  'https://aihub.org/feed?cat=-473',
+  'https://aijobs.net/feed/'
+];
+
+function getConfiguredRSSFeeds(env) {
+  const envFeeds = (env.RSS_FEEDS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  const combinedFeeds = [...new Set([...DEFAULT_RSS_FEEDS, ...envFeeds])];
+  const maxFeeds = parseInt(env.MAX_RSS_FEEDS || '', 10);
+  if (Number.isFinite(maxFeeds) && maxFeeds > 0) {
+    return combinedFeeds.slice(0, maxFeeds);
+  }
+  return combinedFeeds;
+}
 // ==================== 去重辅助函数 ====================
 
 function normalizeUrl(url) {
@@ -245,6 +597,83 @@ function truncateTitle(title, maxLength = 60) {
   
   return result;
 }
+
+const BANNED_CHINESE_PHRASES = ['本文', '本研究', '本篇', '本篇中', '本文中'];
+const BANNED_ENGLISH_PHRASES = ['This article', 'This study', 'The article'];
+
+function sanitizeChineseSummary(text) {
+  if (!text) return '';
+  let cleaned = String(text)
+    .replace(/\u3000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  BANNED_CHINESE_PHRASES.forEach(phrase => {
+    cleaned = cleaned.replace(new RegExp(phrase, 'g'), '');
+  });
+  cleaned = cleaned.replace(/^[：:,，\s]+/, '');
+  return cleaned.trim();
+}
+
+function sanitizeEnglishSummary(text) {
+  if (!text) return '';
+  let cleaned = String(text)
+    .replace(/\s+/g, ' ')
+    .trim();
+  BANNED_ENGLISH_PHRASES.forEach(phrase => {
+    cleaned = cleaned.replace(new RegExp(`\\b${phrase}\\b`, 'gi'), '');
+  });
+  cleaned = cleaned.replace(/^[,:;\s]+/, '');
+  return cleaned.trim();
+}
+
+function truncateText(text, maxLength) {
+  if (!text || maxLength <= 0) return '';
+  const str = String(text).trim();
+  if (str.length <= maxLength) return str;
+  return str.slice(0, Math.max(0, maxLength - 1)).trimEnd() + '…';
+}
+
+function buildChineseListSummary(summary, link, maxLength = 200) {
+  const sanitizedSummary = sanitizeChineseSummary(summary);
+  if (!link) {
+    return truncateText(sanitizedSummary, maxLength);
+  }
+  const suffix = `（阅读全文：${link}）`;
+  if (suffix.length >= maxLength) {
+    return suffix.slice(0, maxLength);
+  }
+  const available = maxLength - suffix.length;
+  const shortSummary = truncateText(sanitizedSummary, available);
+  return `${shortSummary}${suffix}`.trim();
+}
+
+function normalizeSummaries(aiData, link) {
+  const summaryZh = sanitizeChineseSummary(aiData.summary_zh || aiData.summaryZh || '');
+  const summaryEn = sanitizeEnglishSummary(aiData.summary_en || aiData.summaryEn || '');
+  let summaryZhShort = sanitizeChineseSummary(aiData.summary_zh_short || '');
+  if (!summaryZhShort) {
+    summaryZhShort = truncateText(summaryZh, 180);
+  }
+  summaryZhShort = truncateText(summaryZhShort, 200);
+
+  let summaryEnShort = sanitizeEnglishSummary(aiData.summary_en_short || '');
+  if (!summaryEnShort) {
+    summaryEnShort = truncateText(summaryEn, 200);
+  } else {
+    summaryEnShort = truncateText(summaryEnShort, 200);
+  }
+
+  const summaryListZh = buildChineseListSummary(summaryZhShort, link, 200);
+
+  return {
+    summaryZh,
+    summaryEn,
+    summaryZhShort,
+    summaryEnShort,
+    summaryListZh
+  };
+}
+
 
 async function checkDuplicates(env, article, logs) {
   const normalizedUrl = normalizeUrl(article.link);
@@ -427,14 +856,20 @@ async function aggregateArticles(env) {
   let published = 0;
   const publishedArticles = [];
   
-  const rssFeeds = (env.RSS_FEEDS || '').split(',')
-    .map(s => s.trim())
-    .filter(Boolean)
-    .slice(0, 15);
+  const rssFeeds = getConfiguredRSSFeeds(env);
   
   const dailyTarget = parseInt(env.DAILY_TARGET || '20', 10);
   
   logs.push(`[开始] 目标: ${dailyTarget} 篇, RSS 源: ${rssFeeds.length} 个`);
+  if (rssFeeds.length === 0) {
+    logs.push('[RSS] ⚠️ 未配置任何 RSS 源');
+    return {
+      count,
+      published,
+      provider: env.AI_PROVIDER || 'openrouter',
+      logs
+    };
+  }
   logs.push(`[AI] 使用: ${env.AI_PROVIDER || 'openrouter'}`);
 
   for (const feedUrl of rssFeeds) {
@@ -496,7 +931,7 @@ async function aggregateArticles(env) {
       // 新的数据结构：AI 已返回完整双语内容
       const originalLang = aiData.original_language || "en";
       logs.push(`[AI] ✅ 相关, 原文语言: ${originalLang}`);
-      logs.push(`[内容] 中文摘要: ${aiData.summary_zh.length} 字, 英文摘要: ${aiData.summary_en.length} 字`);
+      logs.push(`[内容] 中文摘要: ${aiData.summary_zh?.length || 0} 字, 英文摘要: ${aiData.summary_en?.length || 0} 字`);
       
       // 确定最终标题（始终使用中文标题）
       const finalTitle = aiData.title_zh;
@@ -515,6 +950,7 @@ async function aggregateArticles(env) {
       const fullTitle = finalTitleEn || finalTitle; // 完整原文标题
       
       // 构建 HTML 格式的双语内容
+      const normalized = normalizeSummaries(aiData, link);
       const bilingualContent = `
 <p><strong>来源：</strong><a href="${link}" target="_blank" rel="noopener noreferrer">${fullTitle}</a></p>
 
@@ -522,7 +958,7 @@ async function aggregateArticles(env) {
 
 <h2><strong>中文摘要</strong></h2>
 
-${aiData.summary_zh}
+${normalized.summaryZh}
 
 <p><strong>关键词：</strong>${(aiData.keywords_zh || []).join("、")}</p>
 
@@ -532,7 +968,7 @@ ${aiData.summary_zh}
 
 <p><strong>${finalTitleEn}</strong></p>
 
-${aiData.summary_en}
+${normalized.summaryEn}
 
 <p><strong>Keywords:</strong> ${(aiData.keywords_en || []).join(", ")}</p>
 `.trim();
@@ -544,14 +980,14 @@ ${aiData.summary_en}
           url: link,
           name: extractSourceName(link)
         },
-        summary_list_zh: aiData.summary_zh_short,
-        summary_list_en: aiData.summary_en_short,
+        summary_list_zh: normalized.summaryListZh,
+        summary_list_en: normalized.summaryEnShort,
         summary_zh: {
-          content: aiData.summary_zh,
+          content: normalized.summaryZh,
           keywords: (aiData.keywords_zh || []).map(kw => ({ keyword: kw }))
         },
         summary_en: {
-          content: aiData.summary_en,
+          content: normalized.summaryEn,
           keywords: (aiData.keywords_en || []).map(kw => ({ keyword: kw }))
         },
         original_language: aiData.original_language || 'en',
@@ -578,7 +1014,7 @@ ${aiData.summary_en}
       await saveDuplicateKeys(env, {
         link,
         title: finalTitle,
-        summary: aiData.summary
+        summary: normalized.summaryZh
       });
       
       published++;

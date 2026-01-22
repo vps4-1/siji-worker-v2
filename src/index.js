@@ -110,13 +110,39 @@ const CLAUDE_CONFIG = {
 
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-  models: [
-    'moonshot/moonshot-v1-8k',        // Kimi
-    'groq/llama-3.1-70b-versatile',   // Groq
-    'deepseek/deepseek-chat',         // DeepSeek
-    'qwen/qwen-2.5-72b-instruct',     // Qwen (备用)
-    'anthropic/claude-3.5-sonnet'     // Claude (备用)
-  ]
+  models: {
+    // 内容判断和快速筛选 - 追求速度和成本
+    screening: [
+      'groq/llama-3.1-70b-versatile',   // Groq - 极快推理，适合批量筛选
+      'deepseek/deepseek-chat',         // DeepSeek - 性价比高
+      'qwen/qwen-2.5-72b-instruct'      // Qwen - 备用快速选项
+    ],
+    
+    // 详细摘要生成 - 追求质量和中文理解
+    summarization: [
+      'google/gemini-2.5-pro',          // Gemini 2.5 Pro - 最新最强，质量优先
+      'moonshot/moonshot-v1-8k',        // Kimi - 中文理解极佳
+      'anthropic/claude-3.5-sonnet',    // Claude - 高质量内容生成
+      'deepseek/deepseek-chat'          // DeepSeek - 技术内容理解强
+    ],
+    
+    // 翻译和术语标注 - 平衡质量和成本  
+    translation: [
+      'moonshot/moonshot-v1-8k',        // Kimi - 中英文理解平衡
+      'google/gemini-2.5-pro',          // Gemini 2.5 Pro - 多语言能力强
+      'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文术语准确
+      'groq/llama-3.1-70b-versatile'    // Groq - 快速处理
+    ],
+    
+    // 默认降级序列
+    fallback: [
+      'moonshot/moonshot-v1-8k',
+      'groq/llama-3.1-70b-versatile', 
+      'deepseek/deepseek-chat',
+      'qwen/qwen-2.5-72b-instruct',
+      'anthropic/claude-3.5-sonnet'
+    ]
+  }
 };
 
 const CLAUDE_AGENT_CONFIG = {
@@ -813,7 +839,7 @@ function getAIProvider(env) {
   return AI_PROVIDERS.OPENROUTER;
 }
 
-async function callAI(env, title, description) {
+async function callAI(env, title, description, purpose = 'summarization') {
   const provider = getAIProvider(env);
   
   try {
@@ -822,7 +848,7 @@ async function callAI(env, title, description) {
     } else if (provider === AI_PROVIDERS.CLAUDE_AGENT) {
       return await callClaudeAgent(env, title, description);
     } else {
-      return await callOpenRouterAI(env, title, description);
+      return await callOpenRouterAI(env, title, description, purpose);
     }
   } catch (error) {
     console.error(`[AI] ${provider} 失败:`, error);
@@ -830,7 +856,7 @@ async function callAI(env, title, description) {
     if (provider === AI_PROVIDERS.CLAUDE && env.OPENROUTER_API_KEY) {
       console.log('[AI] 回退到 OpenRouter');
       try {
-        return await callOpenRouterAI(env, title, description);
+        return await callOpenRouterAI(env, title, description, 'fallback');
       } catch (fallbackError) {
         console.error('[AI] OpenRouter 回退失败:', fallbackError);
       }
@@ -918,7 +944,7 @@ async function callClaudeAI(env, title, description) {
   return JSON.parse(jsonMatch[0]);
 }
 
-async function callOpenRouterAI(env, title, description) {
+async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
   const prompt = `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
 
 标题: ${title}
@@ -965,12 +991,14 @@ async function callOpenRouterAI(env, title, description) {
   "keywords_en": ["keyword1", "keyword2", "keyword3"]
 }`;
 
-  const models = OPENROUTER_CONFIG.models || ['anthropic/claude-3.5-sonnet'];
+  // 根据用途选择模型
+  const modelList = OPENROUTER_CONFIG.models[purpose] || OPENROUTER_CONFIG.models.fallback;
+  console.log(`[AI] 使用${purpose}策略，可用模型: ${modelList.length}个`);
   
-  for (let i = 0; i < models.length; i++) {
-    const model = models[i];
+  for (let i = 0; i < modelList.length; i++) {
+    const model = modelList[i];
     try {
-      console.log(`[AI] 尝试模型 ${i + 1}/${models.length}: ${model}`);
+      console.log(`[AI] 尝试模型 ${i + 1}/${modelList.length}: ${model} (${purpose})`);
       
       const response = await fetch(OPENROUTER_CONFIG.endpoint, {
         method: 'POST',
@@ -995,7 +1023,7 @@ async function callOpenRouterAI(env, title, description) {
           console.log(`[AI] ⏭️ 切换到下一个模型...`);
           continue;
         }
-        throw new Error(`所有模型都失败了`);
+        throw new Error(`所有${purpose}模型都失败了`);
       }
 
       const data = await response.json();
@@ -1026,7 +1054,7 @@ async function callOpenRouterAI(env, title, description) {
 
 async function callClaudeAgent(env, title, description) {
   console.log('[AI] Claude Agent 暂未启用，回退到 OpenRouter');
-  return await callOpenRouterAI(env, title, description);
+  return await callOpenRouterAI(env, title, description, 'fallback');
 }
 
 // ==================== Payload 发布 (修复版) ====================

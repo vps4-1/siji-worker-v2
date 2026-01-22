@@ -111,12 +111,11 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: [
-    'google/gemini-2.5-pro',
-    'x-ai/grok-4',
-    'qwen/qwen-2.5-72b-instruct',
-    'deepseek/deepseek-chat',
-    'anthropic/claude-3.5-sonnet',
-    'google/gemini-pro-1.5'
+    'moonshot/moonshot-v1-8k',        // Kimi
+    'groq/llama-3.1-70b-versatile',   // Groq
+    'deepseek/deepseek-chat',         // DeepSeek
+    'qwen/qwen-2.5-72b-instruct',     // Qwen (备用)
+    'anthropic/claude-3.5-sonnet'     // Claude (备用)
   ]
 };
 

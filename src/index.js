@@ -905,8 +905,8 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
         summary_zh_short: (description || title).substring(0, 200),
         summary_en: description || title,
         summary_en_short: (description || title).substring(0, 200),
-        keywords_zh: ['AI技术', '产品发布'],
-        keywords_en: ['AI Technology', 'Product Release']
+        keywords_zh: ['AI技术', '产品发布', '科技新闻'],
+        keywords_en: ['AI Technology', 'Product Release', 'Tech News']
       };
       
       // 新的数据结构：AI 已返回完整双语内容

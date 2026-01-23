@@ -31,9 +31,13 @@ TELEGRAM_BOT_TOKEN = "8357258804:AAFStW2STWQIEIKbe0jLtXoz51r5-B_MsGc"
 TELEGRAM_CHANNEL_ID = "-1003648041127"
 TG_REPLY_ON_SUCCESS = "true"
 
-# 📱 Telegram → Payload 配置 (真实连接)
-PAYLOAD_API_ENDPOINT = "https://payload-website-starter-onbwoq68m-billboings-projects.vercel.app"
-PAYLOAD_API_KEY = "JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiY29sbGVjdGlvbiI6InVzZXJzIiwiZW1haWwiOiJhZG1pbkB6aHVqaS5nZCIsInNpZCI6ImE5NDk0NjAwLTMwYWMtNDIwOC05M2MzLTNjZTliMTNlYzZiZCIsImlhdCI6MTc2OTE3NzkzNiwiZXhwIjoxNzY5MTg1MTM2fQ.kWvEjigoT9xOACWMmtMMblUeK9KHEF-Xt9ur5sLNTQg"
+# 📱 Telegram → Payload 配置 (使用RSS系统的工作端点)
+PAYLOAD_API_ENDPOINT = "https://payload-website-starter-blush-sigma.vercel.app"
+PAYLOAD_API_KEY = "将使用EMAIL/PASSWORD登录方式"
+
+# RSS系统使用的登录凭据 (需要添加到生产环境)
+# PAYLOAD_EMAIL = "admin@zhuji.gd"  
+# PAYLOAD_PASSWORD = "61381185"
 
 # 📱 Payload只读模式说明:
 # 该Payload实例目前只支持GET操作，不支持POST创建文章

@@ -1736,12 +1736,13 @@ async function enhanceContentWithAI(env, messageData) {
 async function publishToPayloadCMS(env, content) {
   try {
     const payloadEndpoint = env.PAYLOAD_API_ENDPOINT;
-    const payloadApiKey = env.PAYLOAD_API_KEY;
+    const payloadEmail = env.PAYLOAD_EMAIL;
+    const payloadPassword = env.PAYLOAD_PASSWORD;
     
-    if (!payloadEndpoint || !payloadApiKey) {
+    if (!payloadEndpoint) {
       return { 
         success: false, 
-        error: '未配置Payload CMS连接信息 (PAYLOAD_API_ENDPOINT, PAYLOAD_API_KEY)' 
+        error: '未配置Payload CMS连接信息 (PAYLOAD_API_ENDPOINT)' 
       };
     }
 
@@ -1774,34 +1775,66 @@ async function publishToPayloadCMS(env, content) {
         }
       };
     }
+    
+    // 🔐 使用与RSS系统相同的登录方式
+    let token;
+    
+    if (!payloadEmail || !payloadPassword) {
+      return {
+        success: false,
+        error: '未配置Payload登录凭据 (PAYLOAD_EMAIL, PAYLOAD_PASSWORD)'
+      };
+    }
+    
+    console.log('[Payload] 🔐 开始登录...');
+    const loginResponse = await fetch(`${payloadEndpoint}/api/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: payloadEmail,
+        password: payloadPassword
+      })
+    });
+    
+    if (!loginResponse.ok) {
+      const errorText = await loginResponse.text();
+      return {
+        success: false,
+        error: `Payload登录失败: ${errorText}`
+      };
+    }
+    
+    const loginData = await loginResponse.json();
+    token = loginData.token;
+    console.log('[Payload] ✅ 登录成功');
 
     // 构建Payload文档数据 - 简化版本，不使用AI处理
     const payloadDoc = {
+      title: content.title || content.text.substring(0, 100), // 使用前100字符作为标题
+      title_en: content.title || content.text.substring(0, 100),
       content: content.text, // 直接使用原始文本内容
-      excerpt: content.text?.substring(0, 300) || '', // 简单截取前300字符作为摘要
-      status: 'published',
+      slug: generateSlugFromContent(content.text),
       publishedAt: content.date,
-      source: 'telegram_manual', // 标识为手动Telegram内容
-      sourceUrl: content.link,
-      sourceData: {
-        telegram_chat_id: content.chat_id,
-        telegram_message_id: content.message_id,
-        original_text: content.text,
-        is_manual_post: content.is_manual_post || true,
-        content_type: 'user_generated',
-        publish_source: 'telegram_channel',
-        rss_filtered: false
+      source: {
+        name: 'Telegram Manual',
+        url: content.link,
+        author: 'SijiGPT Bot'
       },
-      tags: content.hashtags || [], // 直接使用#标签作为关键词
-      // 不再生成title，让Payload使用默认或根据内容自动生成
+      original_language: 'zh', // 假设是中文
+      summary_zh: {
+        content: content.text,
+        keywords: content.hashtags.map(tag => ({ keyword: tag }))
+      },
+      _status: 'published'
     };
 
-    // 调用Payload API
+    console.log('[Payload] 📄 准备发布文档...');
+
     const response = await fetch(`${payloadEndpoint}/api/posts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': payloadApiKey, // 使用完整的JWT token
+        'Authorization': `JWT ${token}`, // 使用动态获取的token
         'User-Agent': 'SijiGPT-TelegramBot/1.0'
       },
       body: JSON.stringify(payloadDoc)
@@ -1809,25 +1842,16 @@ async function publishToPayloadCMS(env, content) {
 
     if (response.ok) {
       const result = await response.json();
+      console.log('[Payload] ✅ 发布成功');
       return {
         success: true,
         id: result.doc?.id || result.id,
-        slug: result.doc?.slug || result.slug
+        slug: result.doc?.slug || result.slug,
+        url: `${payloadEndpoint}/${result.doc?.slug || result.slug}`
       };
     } else {
       const errorText = await response.text();
-      
-      // 特殊处理只读权限问题
-      if (response.status === 405) {
-        return {
-          success: false,
-          error: 'Payload CMS只读模式 - 当前Token仅有查看权限，无法创建文章',
-          readonly: true,
-          canRead: true,
-          suggestion: '需要管理员权限或不同的Token来创建文章',
-          currentEndpoint: payloadEndpoint
-        };
-      }
+      console.log('[Payload] ❌ 发布失败:', errorText);
       
       return {
         success: false,

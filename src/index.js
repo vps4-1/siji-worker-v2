@@ -1239,7 +1239,7 @@ async function sendSummaryToTelegram(env, articles, logs) {
 📊 发布了 ${articles.length} 篇文章:
 ${articleList}
 
-🌐 查看网站: https://siji-weekly.pages.dev`;
+🌐 查看网站: https://sijigpt.com`;
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {

@@ -974,7 +974,7 @@ ${finalAiData.summary_en}
         content: bilingualContent
       };
 
-      const payloadSuccess = await publishToPayload(env, payloadData, logs);
+      const payloadSuccess = await publishToPayload(env, payloadData, logs, shouldForceInclude);
       
       if (!payloadSuccess) {
         logs.push(`[Payload] ❌ 发布失败`);
@@ -1294,7 +1294,7 @@ async function callClaudeAgent(env, title, description) {
 
 // ==================== Payload 发布 (修复版) ====================
 
-async function publishToPayload(env, article, logs) {
+async function publishToPayload(env, article, logs, forceInclude = false) {
   // 🧪 检查模拟模式
   const payloadEndpoint = env.PAYLOAD_API_ENDPOINT;
   if (payloadEndpoint && payloadEndpoint.startsWith('mock://')) {
@@ -1302,7 +1302,7 @@ async function publishToPayload(env, article, logs) {
     
     // 模拟成功响应
     const mockId = `mock_${Date.now()}`;
-    const mockSlug = generateSlug(article.title, article.title_en, article.summary_en?.keywords || []);
+    const mockSlug = generateSlug(article.title, article.title_en, article.summary_en?.keywords || [], forceInclude);
     
     logs.push(`[Payload] 📄 模拟发布: ${article.title.substring(0, 50)}...`);
     logs.push(`[Payload] ✅ 发布成功 ID: ${mockId}`);
@@ -1351,7 +1351,7 @@ async function publishToPayload(env, article, logs) {
   try {
      // 构建 Payload 数据（双语格式）
     // 直接使用传入的 article（已包含正确的嵌套结构）
-    article.slug = generateSlug(article.title, article.title_en, article.summary_en?.keywords || []);
+    article.slug = generateSlug(article.title, article.title_en, article.summary_en?.keywords || [], forceInclude);
     article.publishedAt = new Date().toISOString();
     article._status = "published";
     const response = await fetch('https://payload-website-starter-blush-sigma.vercel.app/api/posts', {
@@ -1508,7 +1508,7 @@ function detectLanguage(text) {
   return (chineseChars / totalChars) > 0.3 ? 'zh' : 'en';
 }
 
-function generateSlug(title, titleEn, keywords) {
+function generateSlug(title, titleEn, keywords, forceUnique = false) {
   // 优先使用英文标题，其次用英文关键词，最后用中文标题
   let sourceText = titleEn || title;
   
@@ -1524,14 +1524,17 @@ function generateSlug(title, titleEn, keywords) {
     .replace(/\s+/g, '-')     // 空格转连字符
     .replace(/-+/g, '-')      // 多个连字符合并
     .replace(/^-|-$/g, '')    // 移除首尾连字符
-    .substring(0, 60);        // 限制长度
+    .substring(0, 50);        // 限制长度，为时间戳留空间
   
   // 确保不为空
-  if (!baseSlug) {
-    return `ai-article-${Date.now().toString(36)}`;
+  let finalSlug = baseSlug || `ai-article-${Date.now().toString(36)}`;
+  
+  // 对强制收录的文章添加唯一时间戳
+  if (forceUnique) {
+    finalSlug += `-${Date.now().toString(36)}`;
   }
   
-  return baseSlug;
+  return finalSlug;
 }
 
 // ==================== 📱 Telegram → Payload 发布功能 ====================

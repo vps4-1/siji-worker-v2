@@ -31,8 +31,8 @@ TELEGRAM_BOT_TOKEN = "8357258804:AAFStW2STWQIEIKbe0jLtXoz51r5-B_MsGc"
 TELEGRAM_CHANNEL_ID = "-1003648041127"
 TG_REPLY_ON_SUCCESS = "true"
 
-# 📱 Telegram → Payload 配置 (需要用户配置)
-# PAYLOAD_API_ENDPOINT = ""        # Payload CMS API地址 (如: https://your-payload.com)
-# PAYLOAD_API_KEY = ""             # Payload API密钥
+# 📱 Telegram → Payload 配置 (已配置网站地址)
+PAYLOAD_API_ENDPOINT = "https://payload-website-starter-onbwoq68m-billboings-projects.vercel.app"
+# PAYLOAD_API_KEY = ""             # 需要从Payload后台获取
 
 # RSS sources are now defined in the code to avoid 5.1KB environment variable limit

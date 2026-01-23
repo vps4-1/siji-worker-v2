@@ -667,6 +667,64 @@ export default {
       });
     }
 
+    // 🔑 Payload连接测试端点
+    if (url.pathname === '/test-payload' && request.method === 'POST') {
+      try {
+        const { email, password } = await request.json();
+        
+        // 尝试登录Payload获取Token
+        const loginResponse = await fetch('https://payload-website-starter-onbwoq68m-billboings-projects.vercel.app/api/users/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'SijiGPT-PayloadTest/1.0'
+          },
+          body: JSON.stringify({ email, password })
+        });
+        
+        let loginResult;
+        const contentType = loginResponse.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          loginResult = await loginResponse.json();
+        } else {
+          loginResult = await loginResponse.text();
+        }
+        
+        console.log('[Payload Test] Login response status:', loginResponse.status);
+        console.log('[Payload Test] Content-Type:', contentType);
+        console.log('[Payload Test] Response preview:', typeof loginResult === 'string' ? loginResult.substring(0, 300) : JSON.stringify(loginResult).substring(0, 300));
+        
+        // 检查响应头中的Authorization或Set-Cookie
+        const authHeader = loginResponse.headers.get('authorization');
+        const setCookie = loginResponse.headers.get('set-cookie');
+        
+        return new Response(JSON.stringify({
+          success: loginResponse.ok,
+          status: loginResponse.status,
+          contentType: contentType,
+          authHeader: authHeader,
+          setCookie: setCookie,
+          responseData: typeof loginResult === 'string' ? loginResult.substring(0, 500) : loginResult,
+          allHeaders: Object.fromEntries(loginResponse.headers.entries())
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+        
+      } catch (error) {
+        console.log('[Payload Test] Error:', error.message);
+        return new Response(JSON.stringify({
+          success: false,
+          error: error.message,
+          stack: error.stack
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
     if (path === '/test' && request.method === 'POST') {
       try {
         const result = await aggregateArticles(env, '0 15 * * *'); // 使用GLOBAL时段测试

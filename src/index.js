@@ -111,17 +111,17 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 内容判断和快速筛选 - Claude 3.5 Haiku优先策略
+    // 内容判断和快速筛选 - Grok高速筛选优先
     screening: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 理解准确+指令遵循强
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 速度+成本备用
-      'groq/llama-3.1-70b-versatile',      // Groq 70B - 第二备用
-      'groq/llama-3.1-8b-instant'          // Groq 8B - 最终备用
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 高速筛选专用，速度最优
+      'groq/llama-3.1-70b-versatile',      // Groq 70B - 快速备用
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 精细判断备用
+      'groq/llama-3.1-8b-instant'          // Groq 8B - 最快备用
     ],
     
-    // 详细摘要生成 - Claude 3.5 Haiku优先策略
+    // 详细摘要生成 - Claude质量优先策略
     summarization: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 文本理解+摘要质量优秀
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 摘要质量优秀，精细工作适用
       'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 长上下文备用
       'groq/llama-3.1-70b-versatile',      // Groq 70B - 第二备用
       'deepseek/deepseek-chat'              // DeepSeek - 最终备用

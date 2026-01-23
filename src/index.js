@@ -111,12 +111,12 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 内容判断和快速筛选 - 极速响应优先
+    // 内容判断和快速筛选 - 使用更强模型确保准确判断
     screening: [
-      'groq/llama-3.1-8b-instant',         // Groq 8B Instant - 超快推理
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 低延迟
-      'x-ai/grok-2-1212',                   // Grok - 高频处理
-      'groq/llama-3.1-70b-versatile'       // Groq 70B - 备用
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 理解能力更强
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 判断能力好
+      'groq/llama-3.1-70b-versatile',      // Groq 70B - 更强理解
+      'groq/llama-3.1-8b-instant'          // Groq 8B - 最后备用
     ],
     
     // 详细摘要生成 - 质量与速度平衡
@@ -925,15 +925,13 @@ async function callClaudeAI(env, title, description) {
 标题: ${title}
 描述: ${description}
 
-相关范围（宽松判断）：
-只要内容涉及以下任何一个方面即视为相关：
-- AI/ML/DL 技术、算法、模型
-- AI 应用、产品、工具
-- AI 硬件、芯片、算力
-- AI 公司、创业、融资
-- AI 研究、论文、开源项目
-- AI 政策、伦理、监管
-- 与 AI 结合的任何领域（医疗、教育、金融等）
+相关范围（🔥 极宽松判断 - 疑似就算相关！）：
+只要标题或描述包含这些关键词就算相关：
+- 直接词汇: AI, ML, ChatGPT, GPT, OpenAI, Claude, Gemini, 机器学习, 深度学习, 算法
+- 技术词汇: PostgreSQL, 数据库, 搜索, API, 云计算, 自动化, 智能, GPU, 芯片
+- 公司名称: Google, Microsoft, Meta, Amazon, NVIDIA, Anthropic
+
+⭐ 重要原则: 宁可多收录，不要遗漏！
 
 要求：
 1. 检测原文语言（中文或英文）
@@ -1003,22 +1001,11 @@ async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
 标题: ${title}
 描述: ${description}
 
-相关范围包括但不限于:
-⚠️ 采用极宽松判断标准 - 以下任何情况都视为AI相关：
+🔥 重要：如果标题包含以下任何词汇，立即判定为相关！
 
-✅ 直接AI相关:
-- AI/ML/DL 技术: 机器学习、深度学习、大语言模型、计算机视觉、NLP、强化学习
-- AI 应用: ChatGPT、Gemini、Claude、Stable Diffusion、Midjourney、视频生成(Sora/Veo)  
-- AI 硬件: GPU、TPU、NPU、AI 芯片、算力、数据中心
-- AI 平台/工具: TensorFlow、PyTorch、Hugging Face、LangChain、向量数据库
-- AI 公司动态: OpenAI、Google DeepMind、Anthropic、Meta AI、NVIDIA、微软、亚马逊等的 AI 相关发布
+必须判为相关的关键词：AI, ML, ChatGPT, GPT, OpenAI, Claude, Gemini, PostgreSQL, 搜索, 机器学习, 深度学习, 算法, 数据库, Google, Microsoft, Amazon
 
-✅ 间接AI相关:
-- 任何公司的技术创新、产品发布、战略调整（大概率涉及AI）
-- 编程工具、开发平台、数据科学、云计算服务
-- 自动化、智能化、数字化转型相关内容
-- PostgreSQL、数据库优化（AI训练基础设施）
-- 搜索功能、推荐系统、用户体验改进
+判断原则：宁可错收，不可漏掉！疑似相关就算相关！
 
 ✅ 潜在AI相关:
 - 科技公司的任何技术发布

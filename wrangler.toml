@@ -35,9 +35,9 @@ TG_REPLY_ON_SUCCESS = "true"
 PAYLOAD_API_ENDPOINT = "https://payload-website-starter-blush-sigma.vercel.app"
 PAYLOAD_API_KEY = "将使用EMAIL/PASSWORD登录方式"
 
-# RSS系统使用的登录凭据 (需要添加到生产环境)
-# PAYLOAD_EMAIL = "admin@zhuji.gd"  
-# PAYLOAD_PASSWORD = "61381185"
+# RSS系统使用的登录凭据
+PAYLOAD_EMAIL = "admin@zhuji.gd"  
+PAYLOAD_PASSWORD = "61381185"
 
 # 📱 Payload只读模式说明:
 # 该Payload实例目前只支持GET操作，不支持POST创建文章

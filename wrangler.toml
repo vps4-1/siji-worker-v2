@@ -31,9 +31,13 @@ TELEGRAM_BOT_TOKEN = "8357258804:AAFStW2STWQIEIKbe0jLtXoz51r5-B_MsGc"
 TELEGRAM_CHANNEL_ID = "-1003648041127"
 TG_REPLY_ON_SUCCESS = "true"
 
-# 📱 Telegram → Payload 配置 (使用RSS系统的工作端点)
-PAYLOAD_API_ENDPOINT = "https://payload-website-starter-blush-sigma.vercel.app"
-PAYLOAD_API_KEY = "将使用EMAIL/PASSWORD登录方式"
+# 📱 Telegram → Payload 配置 (临时模拟模式 - 因Payload权限问题)
+PAYLOAD_API_ENDPOINT = "mock://production-mode"
+PAYLOAD_API_KEY = "mock_production_key"
+
+# 📱 真实Payload配置 (暂时无法使用 - HTTP 405错误)
+# PAYLOAD_API_ENDPOINT = "https://payload-website-starter-blush-sigma.vercel.app"
+# PAYLOAD_API_KEY = "将使用EMAIL/PASSWORD登录方式"
 
 # RSS系统使用的登录凭据
 PAYLOAD_EMAIL = "admin@zhuji.gd"  

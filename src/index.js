@@ -111,37 +111,36 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 内容判断和快速筛选 - 追求速度和低成本
+    // 内容判断和快速筛选 - 极速响应优先
     screening: [
-      'groq/llama-3.1-70b-versatile',   // Groq - 极快推理，批量筛选首选
-      'deepseek/deepseek-chat',         // DeepSeek - 高性价比
-      'moonshot/moonshot-v1-8k',        // Kimi - 备用选项
-      'qwen/qwen-2.5-72b-instruct'      // Qwen - 最后备用
+      'groq/llama-3.1-8b-instant',         // Groq 8B Instant - 超快推理
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 低延迟
+      'x-ai/grok-2-1212',                   // Grok - 高频处理
+      'groq/llama-3.1-70b-versatile'       // Groq 70B - 备用
     ],
     
-    // 详细摘要生成 - 优先性价比，质量兼顾
+    // 详细摘要生成 - 质量与速度平衡
     summarization: [
-      'moonshot/moonshot-v1-8k',        // Kimi - 中文理解优秀，性价比好
-      'deepseek/deepseek-chat',         // DeepSeek - 技术内容理解强，便宜
-      'groq/llama-3.1-70b-versatile',   // Groq - 速度快，成本可控
-      'qwen/qwen-2.5-72b-instruct'      // Qwen - 中文能力强
-      // 完全移除 Claude 和 Gemini 2.5 Pro
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 编程/多语言优秀
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 长上下文处理
+      'groq/llama-3.1-70b-versatile',      // Groq 70B - 高质量内容
+      'deepseek/deepseek-chat'              // DeepSeek - 成本备用
     ],
     
-    // 翻译和术语标注 - 中文优先，成本控制
+    // 翻译和术语标注 - 多语言能力优先  
     translation: [
-      'moonshot/moonshot-v1-8k',        // Kimi - 中英文理解平衡，首选
-      'deepseek/deepseek-chat',         // DeepSeek - 术语理解准确，便宜
-      'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文术语专业
-      'groq/llama-3.1-70b-versatile'    // Groq - 快速处理
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 多语言+Agent能力
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 中英文理解
+      'groq/llama-3.1-70b-versatile',      // Groq 70B - 专业术语
+      'deepseek/deepseek-chat'              // DeepSeek - 技术术语备用
     ],
     
-    // 默认降级序列 - 成本优先
+    // 默认降级序列 - 速度与成本优化
     fallback: [
-      'moonshot/moonshot-v1-8k',        // Kimi - 综合性能好，便宜
-      'deepseek/deepseek-chat',         // DeepSeek - 技术内容强，便宜
-      'groq/llama-3.1-70b-versatile',   // Groq - 速度快
-      'qwen/qwen-2.5-72b-instruct'      // Qwen - 中文能力
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 延迟低+准确高
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 预算敏感
+      'groq/llama-3.1-8b-instant',         // Groq 8B - 超快速度
+      'deepseek/deepseek-chat'              // DeepSeek - 最终备用
     ]
   }
 };
@@ -326,15 +325,15 @@ const ROTATION_RSS_POOLS = {
 
 // RSS处理配置
 const RSS_CONFIG = {
-  // 性能限制 - 保守稳定配置
-  MAX_SOURCES_PER_RUN: 40,     // 每次最多处理40个源 (15核心+25轮换)
-  MAX_CONCURRENT: 25,          // 最大并发数 - 保守稳定
-  SOURCE_TIMEOUT: 4000,        // 单源超时4秒 - 快速响应
-  TOTAL_TIMEOUT: 25000,        // 总执行时限25秒 - 实用稳定
+  // 性能限制 - 高速实用配置
+  MAX_SOURCES_PER_RUN: 30,     // 每次最多处理30个源 (15核心+15轮换)
+  MAX_CONCURRENT: 20,          // 最大并发数 - 高速平衡
+  SOURCE_TIMEOUT: 4000,        // 单源超时4秒 - 实用设置
+  TOTAL_TIMEOUT: 20000,        // 总执行时限20秒 - 高速实用
   
-  // 轮换策略 - 保守稳定
-  CORE_COUNT: 15,              // 核心源数量（每次全取）- 稳定覆盖
-  ROTATION_COUNT: 25,          // 每次轮换源数量 - 稳定扩容
+  // 轮换策略 - 高速实用
+  CORE_COUNT: 15,              // 核心源数量 - 稳定覆盖
+  ROTATION_COUNT: 15,          // 每次轮换源数量 - 高速实用
   
   // Cron时段映射
   CRON_TIME_ZONES: {

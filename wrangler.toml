@@ -26,10 +26,13 @@ TELEGRAM_CHANNEL = "@sijigpt"
 # 模型优先级：Claude > Grok > 千问
 OPENROUTER_MODELS = "groq/llama-3.1-8b-instant,anthropic/claude-3-5-haiku,x-ai/grok-2-1212,groq/llama-3.1-70b-versatile"
 
-# 📱 Telegram → Payload 配置 (简化版)
-# TELEGRAM_BOT_TOKEN = ""          # Telegram Bot Token (需要手动设置)
+# 📡 Telegram 配置 (生产环境)
+TELEGRAM_BOT_TOKEN = "8357258804:AAFStW2STWQIEIKbe0jLtXoz51r5-B_MsGc"
+TELEGRAM_CHANNEL_ID = "-1003648041127"
+TG_REPLY_ON_SUCCESS = "true"
+
+# 📱 Telegram → Payload 配置 (需要用户配置)
 # PAYLOAD_API_ENDPOINT = ""        # Payload CMS API地址 (如: https://your-payload.com)
 # PAYLOAD_API_KEY = ""             # Payload API密钥
-# TG_REPLY_ON_SUCCESS = "true"     # 发布成功后是否回复Telegram确认消息
 
 # RSS sources are now defined in the code to avoid 5.1KB environment variable limit

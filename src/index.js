@@ -858,14 +858,6 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       count++;
       logs.push(`[RSS] 找到: ${title.substring(0, 50)}...`);
       
-      
-      // 三层去重检查
-      const article = { link, title, summary: description };
-      const isDuplicate = await checkDuplicates(env, article, logs);
-      if (isDuplicate) {
-        continue;
-      }
-      
       // 🚨 AI产品发布优先级检查 - 强制通过某些关键内容
       const forceIncludeKeywords = [
         'PostgreSQL', 'ChatGPT', 'Google', 'Microsoft', 'NVIDIA', 'OpenAI', 
@@ -877,6 +869,17 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
         title.toLowerCase().includes(keyword.toLowerCase()) || 
         description?.toLowerCase().includes(keyword.toLowerCase())
       );
+      
+      // 三层去重检查 - 但强制收录的文章绕过去重
+      if (!shouldForceInclude) {
+        const article = { link, title, summary: description };
+        const isDuplicate = await checkDuplicates(env, article, logs);
+        if (isDuplicate) {
+          continue;
+        }
+      } else {
+        logs.push(`[去重] 🚨 强制收录跳过去重检查: ${title.substring(0, 50)}...`);
+      }
 
       // AI 判定与双语内容生成 - 使用更宽松的筛选策略
       const aiData = await callAI(env, title, description, 'screening');

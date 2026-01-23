@@ -677,6 +677,45 @@ export default {
       }
     }
 
+    // 📱 Telegram Webhook 处理 - TG频道 → Payload发布
+    if (path === '/telegram-webhook' && request.method === 'POST') {
+      try {
+        const telegramUpdate = await request.json();
+        console.log('[TG Webhook] 收到更新:', JSON.stringify(telegramUpdate));
+        
+        // 验证是否来自授权的Telegram Bot
+        const botToken = env.TELEGRAM_BOT_TOKEN;
+        if (!botToken) {
+          return new Response(JSON.stringify({ error: '未配置 TELEGRAM_BOT_TOKEN' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // 处理频道消息
+        const result = await handleTelegramToPayload(env, telegramUpdate);
+        
+        return new Response(JSON.stringify(result), {
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      } catch (error) {
+        console.error('[TG Webhook] 处理错误:', error);
+        return new Response(JSON.stringify({ 
+          error: error.message,
+          success: false 
+        }), {
+          status: 500,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+    }
+
     return new Response('Siji Worker V2 Running', { 
       status: 404,
       headers: { 'Access-Control-Allow-Origin': '*' }
@@ -1343,4 +1382,289 @@ function generateSlug(title, titleEn, keywords) {
   }
   
   return baseSlug;
+}
+
+// ==================== 📱 Telegram → Payload 发布功能 ====================
+
+/**
+ * 处理Telegram频道消息并发布到Payload CMS
+ * @param {Object} env - 环境变量
+ * @param {Object} telegramUpdate - Telegram更新对象
+ * @returns {Object} 处理结果
+ */
+async function handleTelegramToPayload(env, telegramUpdate) {
+  const logs = [];
+  logs.push('[TG→Payload] 开始处理Telegram消息');
+
+  try {
+    // 解析Telegram消息
+    const messageData = parseTelegramMessage(telegramUpdate);
+    if (!messageData) {
+      logs.push('[TG→Payload] ❌ 无效的Telegram消息格式');
+      return { success: false, logs, error: '无效的Telegram消息格式' };
+    }
+
+    logs.push(`[TG→Payload] ✅ 解析消息: ${messageData.text?.substring(0, 100)}...`);
+
+    // AI处理内容（可选）
+    let processedContent = messageData;
+    if (env.AI_ENHANCE_TG_CONTENT === 'true') {
+      logs.push('[TG→Payload] 🤖 使用AI增强内容...');
+      processedContent = await enhanceContentWithAI(env, messageData);
+      logs.push('[TG→Payload] ✅ AI增强完成');
+    }
+
+    // 发布到Payload CMS
+    const payloadResult = await publishToPayloadCMS(env, processedContent);
+    if (payloadResult.success) {
+      logs.push(`[TG→Payload] 🎉 发布成功 ID: ${payloadResult.id}`);
+      
+      // 可选：回复确认消息到Telegram
+      if (env.TG_REPLY_ON_SUCCESS === 'true') {
+        await sendTelegramReply(env, messageData.chat_id, 
+          `✅ 已成功发布到Payload CMS\n🆔 文章ID: ${payloadResult.id}`);
+      }
+      
+      return {
+        success: true,
+        logs,
+        payload_id: payloadResult.id,
+        payload_slug: payloadResult.slug
+      };
+    } else {
+      logs.push(`[TG→Payload] ❌ 发布失败: ${payloadResult.error}`);
+      return { success: false, logs, error: payloadResult.error };
+    }
+
+  } catch (error) {
+    logs.push(`[TG→Payload] 💥 处理异常: ${error.message}`);
+    console.error('[TG→Payload Error]', error);
+    return { success: false, logs, error: error.message };
+  }
+}
+
+/**
+ * 解析Telegram消息
+ * @param {Object} update - Telegram更新对象
+ * @returns {Object|null} 解析后的消息数据
+ */
+function parseTelegramMessage(update) {
+  // 支持频道帖子和群组消息
+  const message = update.message || update.channel_post || update.edited_message || update.edited_channel_post;
+  
+  if (!message) {
+    console.log('[TG Parser] 未找到有效消息');
+    return null;
+  }
+
+  const result = {
+    message_id: message.message_id,
+    chat_id: message.chat?.id,
+    chat_type: message.chat?.type,
+    date: new Date(message.date * 1000).toISOString(),
+    text: message.text || message.caption || '',
+    entities: message.entities || [],
+    photo: message.photo || null,
+    document: message.document || null,
+    video: message.video || null,
+    link: null,
+    title: null,
+    description: null,
+    hashtags: []
+  };
+
+  // 提取链接
+  if (message.entities) {
+    for (const entity of message.entities) {
+      if (entity.type === 'url') {
+        const link = result.text.substring(entity.offset, entity.offset + entity.length);
+        if (!result.link) result.link = link;
+      }
+      if (entity.type === 'text_link') {
+        if (!result.link) result.link = entity.url;
+      }
+      if (entity.type === 'hashtag') {
+        const hashtag = result.text.substring(entity.offset, entity.offset + entity.length);
+        result.hashtags.push(hashtag);
+      }
+    }
+  }
+
+  // 智能提取标题和描述
+  const lines = result.text.split('\n').filter(line => line.trim());
+  if (lines.length > 0) {
+    result.title = lines[0].substring(0, 200); // 第一行作为标题
+    if (lines.length > 1) {
+      result.description = lines.slice(1).join('\n').substring(0, 500); // 后续行作为描述
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 使用AI增强内容
+ * @param {Object} env - 环境变量
+ * @param {Object} messageData - 消息数据
+ * @returns {Object} 增强后的内容
+ */
+async function enhanceContentWithAI(env, messageData) {
+  try {
+    const prompt = `请帮我优化以下Telegram频道消息，使其更适合发布到技术博客：
+
+原始内容: ${messageData.text}
+
+请生成：
+1. 优化后的标题（简洁有力）
+2. 结构化的描述（包含要点总结）
+3. 相关的技术标签
+4. SEO友好的简短摘要
+
+以JSON格式返回：
+{
+  "title": "优化后的标题",
+  "description": "结构化描述",
+  "summary": "SEO摘要",
+  "tags": ["标签1", "标签2", "标签3"],
+  "category": "技术分类"
+}`;
+
+    const aiResult = await callOpenRouterAI(env, prompt, 'enhancement');
+    if (aiResult && aiResult.trim()) {
+      try {
+        const enhanced = JSON.parse(aiResult);
+        return {
+          ...messageData,
+          title: enhanced.title || messageData.title,
+          description: enhanced.description || messageData.description,
+          summary: enhanced.summary || messageData.text.substring(0, 300),
+          ai_tags: enhanced.tags || [],
+          ai_category: enhanced.category || 'Technology'
+        };
+      } catch (parseError) {
+        console.log('[AI Enhancement] JSON解析失败，使用原始内容');
+      }
+    }
+  } catch (error) {
+    console.log('[AI Enhancement] AI增强失败:', error.message);
+  }
+
+  return messageData;
+}
+
+/**
+ * 发布内容到Payload CMS
+ * @param {Object} env - 环境变量
+ * @param {Object} content - 内容数据
+ * @returns {Object} 发布结果
+ */
+async function publishToPayloadCMS(env, content) {
+  try {
+    const payloadEndpoint = env.PAYLOAD_API_ENDPOINT;
+    const payloadApiKey = env.PAYLOAD_API_KEY;
+    
+    if (!payloadEndpoint || !payloadApiKey) {
+      return { 
+        success: false, 
+        error: '未配置Payload CMS连接信息 (PAYLOAD_API_ENDPOINT, PAYLOAD_API_KEY)' 
+      };
+    }
+
+    // 构建Payload文档数据
+    const payloadDoc = {
+      title: content.title || 'Telegram频道消息',
+      slug: generateSlugFromContent(content.title || content.text),
+      content: content.description || content.text,
+      excerpt: content.summary || (content.text?.substring(0, 300) + '...'),
+      status: 'published',
+      publishedAt: content.date,
+      source: 'telegram',
+      sourceUrl: content.link,
+      sourceData: {
+        telegram_chat_id: content.chat_id,
+        telegram_message_id: content.message_id,
+        original_text: content.text,
+        hashtags: content.hashtags,
+        ai_enhanced: !!content.ai_tags
+      },
+      tags: [...(content.hashtags || []), ...(content.ai_tags || [])],
+      category: content.ai_category || 'Technology'
+    };
+
+    // 调用Payload API
+    const response = await fetch(`${payloadEndpoint}/api/posts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `API-Key ${payloadApiKey}`,
+        'User-Agent': 'SijiGPT-TelegramBot/1.0'
+      },
+      body: JSON.stringify(payloadDoc)
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      return {
+        success: true,
+        id: result.doc?.id || result.id,
+        slug: result.doc?.slug || result.slug
+      };
+    } else {
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: `Payload API错误 (${response.status}): ${errorText}`
+      };
+    }
+
+  } catch (error) {
+    return {
+      success: false,
+      error: `发布到Payload失败: ${error.message}`
+    };
+  }
+}
+
+/**
+ * 发送Telegram回复消息
+ * @param {Object} env - 环境变量
+ * @param {string} chatId - 聊天ID
+ * @param {string} message - 消息内容
+ */
+async function sendTelegramReply(env, chatId, message) {
+  try {
+    const botToken = env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'Markdown'
+      })
+    });
+  } catch (error) {
+    console.log('[TG Reply] 发送回复失败:', error.message);
+  }
+}
+
+/**
+ * 生成内容的slug
+ * @param {string} text - 文本内容
+ * @returns {string} slug
+ */
+function generateSlugFromContent(text) {
+  if (!text) {
+    return `tg-post-${Date.now().toString(36)}`;
+  }
+  
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50) || `tg-post-${Date.now().toString(36)}`;
 }

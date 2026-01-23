@@ -124,9 +124,8 @@ const OPENROUTER_CONFIG = {
       'moonshot/moonshot-v1-8k',        // Kimi - 中文理解优秀，性价比好
       'deepseek/deepseek-chat',         // DeepSeek - 技术内容理解强，便宜
       'groq/llama-3.1-70b-versatile',   // Groq - 速度快，成本可控
-      'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文能力强
-      'google/gemini-2.5-pro',          // Gemini 2.5 Pro - 质量高但较贵
-      'anthropic/claude-3.5-sonnet'     // Claude - 最后备用（最贵）
+      'qwen/qwen-2.5-72b-instruct'      // Qwen - 中文能力强
+      // 完全移除 Claude 和 Gemini 2.5 Pro
     ],
     
     // 翻译和术语标注 - 中文优先，成本控制
@@ -134,9 +133,7 @@ const OPENROUTER_CONFIG = {
       'moonshot/moonshot-v1-8k',        // Kimi - 中英文理解平衡，首选
       'deepseek/deepseek-chat',         // DeepSeek - 术语理解准确，便宜
       'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文术语专业
-      'groq/llama-3.1-70b-versatile',   // Groq - 快速处理
-      'google/gemini-2.5-pro'           // Gemini 2.5 Pro - 备用（较贵）
-      // Claude 完全移除，太贵
+      'groq/llama-3.1-70b-versatile'    // Groq - 快速处理
     ],
     
     // 默认降级序列 - 成本优先
@@ -144,9 +141,7 @@ const OPENROUTER_CONFIG = {
       'moonshot/moonshot-v1-8k',        // Kimi - 综合性能好，便宜
       'deepseek/deepseek-chat',         // DeepSeek - 技术内容强，便宜
       'groq/llama-3.1-70b-versatile',   // Groq - 速度快
-      'qwen/qwen-2.5-72b-instruct',     // Qwen - 中文能力
-      'google/gemini-2.5-pro'           // Gemini 2.5 Pro - 最后备用
-      // Claude 移除
+      'qwen/qwen-2.5-72b-instruct'      // Qwen - 中文能力
     ]
   }
 };
@@ -1107,7 +1102,7 @@ async function publishToPayload(env, article, logs) {
   try {
      // 构建 Payload 数据（双语格式）
     // 直接使用传入的 article（已包含正确的嵌套结构）
-    article.slug = generateSlug(article.title);
+    article.slug = generateSlug(article.title, article.title_en, article.summary_en?.keywords || []);
     article.publishedAt = new Date().toISOString();
     article._status = "published";
     const response = await fetch('https://payload-website-starter-blush-sigma.vercel.app/api/posts', {
@@ -1176,19 +1171,19 @@ async function sendBilingualToTelegram(env, article, logs) {
     return;
   }
 
-  const langLabel = article.language === 'zh' ? '🇨🇳 中文' : '🇬🇧 English';
-  const message = `📰 ${langLabel} 新文章
+  // 生成 sijigpt.com 文章链接（基于英文标题生成slug）
+  const slug = generateSlug(article.title, article.title_en, article.keywords_en || []);
+  const sijigptUrl = `https://sijigpt.com/posts/${slug}`;
+  
+  // 修改后的消息格式：使用中文标题 + sijigpt链接 + 中文摘要 + 原文链接
+  const message = `📰 斯基GPT发布文章摘要
 
 **${article.title}**
+${sijigptUrl}
 
 ${article.summary}
 
----
-
-**Translation**:
-${article.translation}
-
-🔗 ${article.url}`;
+🔗 原文链接: ${article.url}`;
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -1265,16 +1260,28 @@ function detectLanguage(text) {
   return (chineseChars / totalChars) > 0.3 ? 'zh' : 'en';
 }
 
-function generateSlug(title) {
-  // 生成基础 slug
-  const baseSlug = title
+function generateSlug(title, titleEn, keywords) {
+  // 优先使用英文标题，其次用英文关键词，最后用中文标题
+  let sourceText = titleEn || title;
+  
+  // 如果没有英文标题但有英文关键词，使用关键词组合
+  if (!titleEn && keywords && keywords.length > 0) {
+    sourceText = keywords.slice(0, 5).join(' '); // 最多取5个关键词
+  }
+  
+  // 生成SEO友好的slug
+  const baseSlug = sourceText
     .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .substring(0, 40);
+    .replace(/[^\w\s-]/g, '') // 移除特殊字符
+    .replace(/\s+/g, '-')     // 空格转连字符
+    .replace(/-+/g, '-')      // 多个连字符合并
+    .replace(/^-|-$/g, '')    // 移除首尾连字符
+    .substring(0, 60);        // 限制长度
   
-  // 添加时间戳后缀避免重复
-  const timestamp = Date.now().toString(36);
+  // 确保不为空
+  if (!baseSlug) {
+    return `ai-article-${Date.now().toString(36)}`;
+  }
   
-  return `${baseSlug}-${timestamp}`;
+  return baseSlug;
 }

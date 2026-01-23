@@ -1470,13 +1470,31 @@ function parseTelegramMessage(update) {
     return null;
   }
 
+  const messageText = message.text || message.caption || '';
+  
+  // 🚫 检测RSS自动推送内容，避免循环发布
+  const isRSSContent = detectRSSAutoContent(messageText, message);
+  if (isRSSContent) {
+    console.log('[TG Parser] 🔄 检测到RSS自动内容，跳过发布到Payload');
+    return null; // 返回null阻止进一步处理
+  }
+
   const result = {
     message_id: message.message_id,
     chat_id: message.chat?.id,
     chat_type: message.chat?.type,
     date: new Date(message.date * 1000).toISOString(),
-    text: message.text || message.caption || '',
+    text: messageText,
     entities: message.entities || [],
+    photo: message.photo || null,
+    document: message.document || null,
+    video: message.video || null,
+    link: null,
+    title: null,
+    description: null,
+    hashtags: [],
+    is_manual_post: true // 标记为手动发布的内容
+  };
     photo: message.photo || null,
     document: message.document || null,
     video: message.video || null,
@@ -1513,6 +1531,99 @@ function parseTelegramMessage(update) {
   }
 
   return result;
+}
+
+/**
+ * 🔍 检测RSS自动推送内容，防止循环发布
+ * @param {string} text - 消息文本
+ * @param {Object} message - 完整消息对象
+ * @returns {boolean} 是否为RSS自动内容
+ */
+function detectRSSAutoContent(text, message) {
+  if (!text) return false;
+
+  // 1. 检测Bot发送的消息（通过User-Agent或via_bot字段）
+  if (message.via_bot || message.from?.is_bot) {
+    console.log('[RSS Detection] 🤖 Bot发送的消息');
+    return true;
+  }
+
+  // 2. 检测典型的RSS格式特征
+  const rssPatterns = [
+    /📰.*摘要：/i,           // RSS摘要格式
+    /🔗.*来源：/i,           // RSS来源标识
+    /📊.*发布时间：/i,       // RSS时间格式
+    /🏷️.*标签：/i,          // RSS标签格式
+    /📍.*链接：/i,           // RSS链接格式
+    /由.*自动推送/i,         // 自动推送标识
+    /SijiGPT.*整理/i,        // 系统整理标识
+  ];
+
+  for (const pattern of rssPatterns) {
+    if (pattern.test(text)) {
+      console.log('[RSS Detection] 📋 匹配RSS格式模式:', pattern);
+      return true;
+    }
+  }
+
+  // 3. 检测RSS源域名链接（表示来自RSS聚合）
+  const rssSourceDomains = [
+    'openai.com/blog',
+    'blog.google',
+    'deepmind.com',
+    'huggingface.co/blog',
+    'aws.amazon.com/blogs',
+    'anthropic.com/news',
+    'arxiv.org',
+    'simonwillison.net',
+    'karpathy.github.io',
+    'lilianweng.github.io'
+  ];
+
+  const hasRSSSource = rssSourceDomains.some(domain => 
+    text.toLowerCase().includes(domain.toLowerCase())
+  );
+
+  if (hasRSSSource) {
+    console.log('[RSS Detection] 🔗 包含RSS源域名链接');
+    return true;
+  }
+
+  // 4. 检测双语摘要格式（RSS系统特有）
+  const bilingualPattern = /.*\n.*\n.*English\s*Summary.*\n.*中文摘要.*/i;
+  if (bilingualPattern.test(text)) {
+    console.log('[RSS Detection] 🌐 检测到双语摘要格式');
+    return true;
+  }
+
+  // 5. 检测消息时间和系统推送时间的匹配
+  const messageTime = new Date(message.date * 1000);
+  const isNearScheduledTime = isNearSystemScheduledTime(messageTime);
+  const hasTechKeywords = /AI|人工智能|机器学习|深度学习|技术|开发|编程/i.test(text);
+
+  if (isNearScheduledTime && hasTechKeywords && text.length > 300) {
+    console.log('[RSS Detection] ⏰ 时间和内容特征匹配RSS推送');
+    return true;
+  }
+
+  return false; // 不是RSS内容，允许发布到Payload
+}
+
+/**
+ * 检查是否接近系统定时推送时间
+ * @param {Date} messageTime - 消息时间
+ * @returns {boolean} 是否接近推送时间
+ */
+function isNearSystemScheduledTime(messageTime) {
+  const hour = messageTime.getUTCHours();
+  const minute = messageTime.getUTCMinutes();
+  
+  // 系统推送时间：0, 4, 7, 11, 14 UTC (±10分钟容错)
+  const scheduledHours = [0, 4, 7, 11, 14];
+  
+  return scheduledHours.some(schedHour => {
+    return hour === schedHour && minute <= 10; // 推送后10分钟内
+  });
 }
 
 /**
@@ -1591,17 +1702,21 @@ async function publishToPayloadCMS(env, content) {
       excerpt: content.summary || (content.text?.substring(0, 300) + '...'),
       status: 'published',
       publishedAt: content.date,
-      source: 'telegram',
+      source: 'telegram_manual', // 标识为手动Telegram内容
       sourceUrl: content.link,
       sourceData: {
         telegram_chat_id: content.chat_id,
         telegram_message_id: content.message_id,
         original_text: content.text,
         hashtags: content.hashtags,
-        ai_enhanced: !!content.ai_tags
+        ai_enhanced: !!content.ai_tags,
+        is_manual_post: content.is_manual_post || true, // 明确标记为手动发布
+        content_type: 'user_generated', // 用户原创内容
+        publish_source: 'telegram_channel', // 来源频道
+        rss_filtered: false // 不是RSS聚合内容
       },
       tags: [...(content.hashtags || []), ...(content.ai_tags || [])],
-      category: content.ai_category || 'Technology'
+      category: content.ai_category || 'Personal' // 个人内容默认分类
     };
 
     // 调用Payload API
@@ -1746,6 +1861,19 @@ async function getTestPageHTML() {
     <h1>📱 斯基GPT - Telegram→Payload 测试工具</h1>
     
     <div class="container">
+        <h2>🚫 防循环发布机制</h2>
+        <div class="info">
+            <strong>✅ 智能识别RSS自动内容</strong><br>
+            • 检测Bot发送的消息<br>
+            • 识别RSS格式特征（摘要、来源、标签等）<br>
+            • 检测RSS源域名链接<br>
+            • 匹配双语摘要格式<br>
+            • 时间匹配系统推送时段<br>
+            <strong>🎯 只发布手动原创内容到Payload</strong>
+        </div>
+    </div>
+
+    <div class="container">
         <h2>🔗 Webhook 端点</h2>
         <div class="endpoint" id="webhookUrl">
             https://siji-worker-v2.chengqiangshang.workers.dev/telegram-webhook
@@ -1777,9 +1905,10 @@ async function getTestPageHTML() {
 }</textarea>
         <br>
         <button onclick="sendTestMessage()" id="sendBtn">🚀 发送测试消息</button>
+        <button onclick="loadPreset('manual')">✏️ 手动内容模板</button>
+        <button onclick="loadPreset('rss')">🤖 RSS内容模板(被拦截)</button>
         <button onclick="loadPreset('news')">📰 新闻模板</button>
         <button onclick="loadPreset('tech')">💻 技术模板</button>
-        <button onclick="loadPreset('ai')">🤖 AI模板</button>
     </div>
 
     <div class="container">
@@ -1901,14 +2030,17 @@ async function getTestPageHTML() {
 
         function loadPreset(type) {
             const presets = {
+                manual: {
+                    text: "💡 我的想法：关于AI发展的思考\\n\\n今天看到GPT-5的消息，让我想到了AI发展的几个关键点：\\n\\n1. 模型能力的指数级增长\\n2. 计算资源需求的挑战\\n3. AI安全和对齐的重要性\\n\\n我认为未来的AI发展需要更加注重可控性和透明度。\\n\\n#AI思考 #未来科技 #个人观点"
+                },
+                rss: {
+                    text: "📰 AI新闻摘要：OpenAI发布GPT-5\\n\\n🔗 来源：https://openai.com/blog/gpt-5\\n\\n📊 发布时间：2024-01-23\\n\\nEnglish Summary: OpenAI announces GPT-5 with revolutionary capabilities...\\n\\n中文摘要：OpenAI今天宣布发布GPT-5模型，在推理和创造性方面实现重大突破...\\n\\n🏷️ 标签：#GPT5 #OpenAI #人工智能\\n\\n由SijiGPT系统自动推送整理"
+                },
                 news: {
                     text: "📰 重大科技新闻：苹果发布AI芯片\\n\\n苹果公司今日正式发布了专为AI计算设计的M3 Ultra芯片，性能较上一代提升40%。\\n\\n关键特性：\\n• 神经网络引擎性能翻倍\\n• 支持端到端AI推理\\n• 功耗降低25%\\n\\n#Apple #AI芯片 #M3Ultra #科技新闻\\n\\nhttps://apple.com/m3-ultra"
                 },
                 tech: {
                     text: "💻 开发者福音：新框架发布\\n\\nNext.js 14正式发布，带来了服务器组件和边缘运行时的重大改进。\\n\\n新特性：\\n• 服务器组件稳定版\\n• Turbopack性能提升\\n• 改进的开发体验\\n\\n#NextJS #React #前端开发 #JavaScript\\n\\nhttps://nextjs.org/blog/next-14"
-                },
-                ai: {
-                    text: "🤖 AI领域突破：多模态大模型\\n\\nGoogle DeepMind发布了Gemini Pro Vision，实现了文本、图像、音频的统一理解。\\n\\n技术亮点：\\n• 多模态融合理解\\n• 实时视觉问答\\n• 代码生成能力增强\\n\\n这为AI应用开辟了新的可能性。\\n\\n#Gemini #DeepMind #多模态AI #机器学习\\n\\nhttps://deepmind.google/gemini"
                 }
             };
 
@@ -1926,7 +2058,13 @@ async function getTestPageHTML() {
                     }
                 };
                 document.getElementById('testMessage').value = JSON.stringify(template, null, 2);
-                showStatus(\`📝 已加载\${type === 'news' ? '新闻' : type === 'tech' ? '技术' : 'AI'}模板\`, 'info');
+                const statusMessages = {
+                    manual: '✏️ 手动内容模板(将发布到Payload)',
+                    rss: '🤖 RSS内容模板(将被拦截)',
+                    news: '📰 新闻模板',
+                    tech: '💻 技术模板'
+                };
+                showStatus(statusMessages[type] || \`📝 已加载\${type}模板\`, type === 'rss' ? 'error' : 'info');
             }
         }
 

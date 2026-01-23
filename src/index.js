@@ -866,22 +866,52 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
         continue;
       }
       
+      // 🚨 AI产品发布优先级检查 - 强制通过某些关键内容
+      const forceIncludeKeywords = [
+        'PostgreSQL', 'ChatGPT', 'Google', 'Microsoft', 'NVIDIA', 'OpenAI', 
+        'Isaac', 'Replicate', 'Attention', 'Sparse', 'AI Mode', 'DRIVE AV',
+        'Personal Intelligence', 'Gated Sparse'
+      ];
+      
+      const shouldForceInclude = forceIncludeKeywords.some(keyword => 
+        title.toLowerCase().includes(keyword.toLowerCase()) || 
+        description?.toLowerCase().includes(keyword.toLowerCase())
+      );
+
       // AI 判定与双语内容生成 - 使用更宽松的筛选策略
       const aiData = await callAI(env, title, description, 'screening');
       
-      if (!aiData || !aiData.relevant) {
-        logs.push(`[AI] ⏭️ 不相关`);
-        continue;
+      if (!aiData || (!aiData.relevant && !shouldForceInclude)) {
+        if (shouldForceInclude) {
+          logs.push(`[AI] 🚨 强制收录: ${title.substring(0, 50)}...`);
+        } else {
+          logs.push(`[AI] ⏭️ 不相关`);
+          continue;
+        }
       }
       
+      // 如果是强制收录但AI判断为不相关，创建基本的双语内容
+      const finalAiData = aiData?.relevant ? aiData : {
+        relevant: true,
+        original_language: 'en',
+        title_zh: title,
+        title_en: title,
+        summary_zh: description || title,
+        summary_zh_short: (description || title).substring(0, 200),
+        summary_en: description || title,
+        summary_en_short: (description || title).substring(0, 200),
+        keywords_zh: ['AI技术', '产品发布'],
+        keywords_en: ['AI Technology', 'Product Release']
+      };
+      
       // 新的数据结构：AI 已返回完整双语内容
-      const originalLang = aiData.original_language || "en";
+      const originalLang = finalAiData.original_language || "en";
       logs.push(`[AI] ✅ 相关, 原文语言: ${originalLang}`);
-      logs.push(`[内容] 中文摘要: ${aiData.summary_zh.length} 字, 英文摘要: ${aiData.summary_en.length} 字`);
+      logs.push(`[内容] 中文摘要: ${finalAiData.summary_zh.length} 字, 英文摘要: ${finalAiData.summary_en.length} 字`);
       
       // 确定最终标题（始终使用中文标题）
-      const finalTitle = aiData.title_zh;
-      const finalTitleEn = aiData.title_en;
+      const finalTitle = finalAiData.title_zh;
+      const finalTitleEn = finalAiData.title_en;
       
       // 构建双语内容（按需求 2 的格式）
     // ============================================
@@ -903,9 +933,9 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
 
 <h2><strong>中文摘要</strong></h2>
 
-${aiData.summary_zh}
+${finalAiData.summary_zh}
 
-<p><strong>关键词：</strong>${(aiData.keywords_zh || []).join("、")}</p>
+<p><strong>关键词：</strong>${(finalAiData.keywords_zh || []).join("、")}</p>
 
 ---
 
@@ -913,9 +943,9 @@ ${aiData.summary_zh}
 
 <p><strong>${finalTitleEn}</strong></p>
 
-${aiData.summary_en}
+${finalAiData.summary_en}
 
-<p><strong>Keywords:</strong> ${(aiData.keywords_en || []).join(", ")}</p>
+<p><strong>Keywords:</strong> ${(finalAiData.keywords_en || []).join(", ")}</p>
 `.trim();
       // 构建 Payload 数据对象
       const payloadData = {
@@ -925,17 +955,17 @@ ${aiData.summary_en}
           url: link,
           name: extractSourceName(link)
         },
-        summary_list_zh: aiData.summary_zh_short,
-        summary_list_en: aiData.summary_en_short,
+        summary_list_zh: finalAiData.summary_zh_short,
+        summary_list_en: finalAiData.summary_en_short,
         summary_zh: {
-          content: aiData.summary_zh,
-          keywords: (aiData.keywords_zh || []).map(kw => ({ keyword: kw }))
+          content: finalAiData.summary_zh,
+          keywords: (finalAiData.keywords_zh || []).map(kw => ({ keyword: kw }))
         },
         summary_en: {
-          content: aiData.summary_en,
-          keywords: (aiData.keywords_en || []).map(kw => ({ keyword: kw }))
+          content: finalAiData.summary_en,
+          keywords: (finalAiData.keywords_en || []).map(kw => ({ keyword: kw }))
         },
-        original_language: aiData.original_language || 'en',
+        original_language: finalAiData.original_language || 'en',
         content: bilingualContent
       };
 
@@ -1035,13 +1065,30 @@ async function callClaudeAI(env, title, description) {
 标题: ${title}
 描述: ${description}
 
-相关范围（🔥 极宽松判断 - 疑似就算相关！）：
-只要标题或描述包含这些关键词就算相关：
-- 直接词汇: AI, ML, ChatGPT, GPT, OpenAI, Claude, Gemini, 机器学习, 深度学习, 算法
-- 技术词汇: PostgreSQL, 数据库, 搜索, API, 云计算, 自动化, 智能, GPU, 芯片
-- 公司名称: Google, Microsoft, Meta, Amazon, NVIDIA, Anthropic
+🔥 重要：以下任何情况都必须判为【相关】！
 
-⭐ 重要原则: 宁可多收录，不要遗漏！
+📋 强制【相关】的关键词（包含任一即算）：
+AI, ML, LLM, GPT, ChatGPT, OpenAI, Claude, Gemini, Google, Microsoft, Amazon, Meta, Apple, NVIDIA, Anthropic, PostgreSQL, 搜索, 机器学习, 深度学习, 算法, 数据库, 云计算, API, SDK, Isaac, Replicate, Attention, Sparse
+
+📋 强制【相关】的产品发布类型：
+- ✅ 任何AI/ML相关产品发布（Isaac 0.1, Google AI搜索等）  
+- ✅ 大厂技术基础设施（PostgreSQL for ChatGPT等）
+- ✅ 开发者工具和平台（Replicate, SDK等）
+- ✅ 研究论文和技术突破（Attention机制等）
+- ✅ AI安全和伦理讨论（虚假信息检测等）
+- ✅ 自动驾驶和机器人技术（NVIDIA DRIVE等）
+
+📋 强制【相关】的公司（发布的任何技术都算）：
+OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hugging Face
+
+🚨 特别强调：AI产品发布必须推送！
+- Isaac模型发布 ✅
+- Google搜索AI功能 ✅  
+- NVIDIA自动驾驶技术 ✅
+- PostgreSQL优化（支撑AI服务）✅
+- 任何大模型相关基础设施 ✅
+
+⭐ 重要原则: 宁可多收录100篇，不要遗漏1个AI产品发布！
 
 要求：
 1. 检测原文语言（中文或英文）
@@ -1111,24 +1158,36 @@ async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
 标题: ${title}
 描述: ${description}
 
-🔥 重要：如果标题包含以下任何词汇，立即判定为相关！
+🔥 重要：以下任何情况都必须判为【相关】！
 
-必须判为相关的关键词：AI, ML, ChatGPT, GPT, OpenAI, Claude, Gemini, PostgreSQL, 搜索, 机器学习, 深度学习, 算法, 数据库, Google, Microsoft, Amazon
+📋 强制【相关】的关键词（包含任一即算）：
+AI, ML, LLM, GPT, ChatGPT, OpenAI, Claude, Gemini, Google, Microsoft, Amazon, Meta, Apple, NVIDIA, Anthropic, PostgreSQL, 搜索, 机器学习, 深度学习, 算法, 数据库, 云计算, API, SDK, Isaac, Replicate, Attention, Sparse
 
-判断原则：宁可错收，不可漏掉！疑似相关就算相关！
+📋 强制【相关】的产品发布类型：
+- ✅ 任何AI/ML相关产品发布（Isaac 0.1, Google AI搜索等）  
+- ✅ 大厂技术基础设施（PostgreSQL for ChatGPT等）
+- ✅ 开发者工具和平台（Replicate, SDK等）
+- ✅ 研究论文和技术突破（Attention机制等）
+- ✅ AI安全和伦理讨论（虚假信息检测等）
+- ✅ 自动驾驶和机器人技术（NVIDIA DRIVE等）
 
-✅ 潜在AI相关:
-- 科技公司的任何技术发布
-- 新的软件功能、平台更新  
-- 数据处理、API服务、云服务
-- 甚至是创业融资、收购并购（可能涉及AI）
+📋 强制【相关】的公司（发布的任何技术都算）：
+OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hugging Face
 
-❌ 明确不相关:
-- 纯娱乐、体育、政治内容
-- 传统制造业、房地产
-- 个人生活、旅游美食
+🚨 特别强调：AI产品发布必须推送！
+- Isaac模型发布 ✅
+- Google搜索AI功能 ✅  
+- NVIDIA自动驾驶技术 ✅
+- PostgreSQL优化（支撑AI服务）✅
+- 任何大模型相关基础设施 ✅
 
-🔑 关键原则：疑问时选择"相关" ✅
+❌ 仅以下内容判为不相关:
+- 纯娱乐八卦、体育比赛
+- 传统制造业、房地产交易  
+- 个人生活、美食旅游
+- 完全无关的政治新闻
+
+🔑 核心原则：宁可多收录100篇，不可漏掉1个AI产品发布！
 
 要求:
 1. 检测原文语言（中文或英文）

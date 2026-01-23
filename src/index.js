@@ -704,8 +704,8 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
         continue;
       }
       
-      // AI 判定与双语内容生成
-      const aiData = await callAI(env, title, description);
+      // AI 判定与双语内容生成 - 使用更宽松的筛选策略
+      const aiData = await callAI(env, title, description, 'screening');
       
       if (!aiData || !aiData.relevant) {
         logs.push(`[AI] ⏭️ 不相关`);
@@ -952,13 +952,34 @@ async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
 描述: ${description}
 
 相关范围包括但不限于:
+⚠️ 采用极宽松判断标准 - 以下任何情况都视为AI相关：
+
+✅ 直接AI相关:
 - AI/ML/DL 技术: 机器学习、深度学习、大语言模型、计算机视觉、NLP、强化学习
-- AI 应用: ChatGPT、Gemini、Claude、Stable Diffusion、Midjourney、视频生成(Sora/Veo)
+- AI 应用: ChatGPT、Gemini、Claude、Stable Diffusion、Midjourney、视频生成(Sora/Veo)  
 - AI 硬件: GPU、TPU、NPU、AI 芯片、算力、数据中心
 - AI 平台/工具: TensorFlow、PyTorch、Hugging Face、LangChain、向量数据库
 - AI 公司动态: OpenAI、Google DeepMind、Anthropic、Meta AI、NVIDIA、微软、亚马逊等的 AI 相关发布
-- AI 研究: 论文、模型架构、训练方法、评测基准
-- AI 伦理/安全: AI 对齐、安全性、监管政策
+
+✅ 间接AI相关:
+- 任何公司的技术创新、产品发布、战略调整（大概率涉及AI）
+- 编程工具、开发平台、数据科学、云计算服务
+- 自动化、智能化、数字化转型相关内容
+- PostgreSQL、数据库优化（AI训练基础设施）
+- 搜索功能、推荐系统、用户体验改进
+
+✅ 潜在AI相关:
+- 科技公司的任何技术发布
+- 新的软件功能、平台更新  
+- 数据处理、API服务、云服务
+- 甚至是创业融资、收购并购（可能涉及AI）
+
+❌ 明确不相关:
+- 纯娱乐、体育、政治内容
+- 传统制造业、房地产
+- 个人生活、旅游美食
+
+🔑 关键原则：疑问时选择"相关" ✅
 
 要求:
 1. 检测原文语言（中文或英文）

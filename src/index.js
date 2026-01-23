@@ -160,7 +160,7 @@ const CLAUDE_AGENT_CONFIG = {
 
 // 核心RSS源：每次必抓，最高质量AI内容
 const CORE_RSS_FEEDS = [
-  // 原有15个核心源
+  // 15个顶级核心源 - 保守稳定配置
   'https://openai.com/blog/rss.xml',
   'https://blog.google/technology/ai/rss/',
   'https://www.deepmind.com/blog/rss.xml',
@@ -175,19 +175,7 @@ const CORE_RSS_FEEDS = [
   'https://simonwillison.net/atom/entries/',
   'https://sebastianraschka.com/blog/index.xml',
   'https://developer.nvidia.com/blog/feed',
-  'https://www.anthropic.com/news/rss.xml',
-  
-  // 新增10个高价值核心源
-  'https://aimodels.substack.com/feed',
-  'https://syncedreview.com/feed',
-  'https://voicebot.ai/feed/',
-  'https://aibusiness.com/rss.xml',
-  'https://siliconangle.com/category/ai/feed',
-  'https://bdtechtalks.com/feed/',
-  'https://aisnakeoil.substack.com/feed',
-  'https://thenewstack.io/feed',
-  'https://insidebigdata.com/feed',
-  'https://knowtechie.com/category/ai/feed/'
+  'https://www.anthropic.com/news/rss.xml'
 ];
 
 // 轮换RSS池：按时段轮换抓取
@@ -338,15 +326,15 @@ const ROTATION_RSS_POOLS = {
 
 // RSS处理配置
 const RSS_CONFIG = {
-  // 性能限制 - 大规模扩容配置
-  MAX_SOURCES_PER_RUN: 75,     // 每次最多处理75个源 (25核心+50轮换)
-  MAX_CONCURRENT: 40,          // 最大并发数 - 提升并发能力
-  SOURCE_TIMEOUT: 6000,        // 单源超时6秒 - 容错更多源
-  TOTAL_TIMEOUT: 35000,        // 总执行时限35秒 - 支持大规模处理
+  // 性能限制 - 保守稳定配置
+  MAX_SOURCES_PER_RUN: 40,     // 每次最多处理40个源 (15核心+25轮换)
+  MAX_CONCURRENT: 25,          // 最大并发数 - 保守稳定
+  SOURCE_TIMEOUT: 4000,        // 单源超时4秒 - 快速响应
+  TOTAL_TIMEOUT: 25000,        // 总执行时限25秒 - 实用稳定
   
-  // 轮换策略
-  CORE_COUNT: 25,              // 核心源数量（每次全取）- 大幅提升
-  ROTATION_COUNT: 50,          // 每次轮换源数量 - 显著扩容
+  // 轮换策略 - 保守稳定
+  CORE_COUNT: 15,              // 核心源数量（每次全取）- 稳定覆盖
+  ROTATION_COUNT: 25,          // 每次轮换源数量 - 稳定扩容
   
   // Cron时段映射
   CRON_TIME_ZONES: {

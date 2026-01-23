@@ -645,10 +645,23 @@ export default {
         provider: env.AI_PROVIDER || 'openrouter',
         timestamp: new Date().toISOString(),
         version: '2.0.1',
-        rss_strategy: 'smart_rotation'
+        rss_strategy: 'smart_rotation',
+        telegram_webhook: '/telegram-webhook',
+        features: ['RSS聚合', 'AI处理', 'Telegram集成', 'Payload发布']
       }), {
         headers: { 
           'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // 📱 Telegram测试页面
+    if (path === '/telegram-test' || path === '/test-page') {
+      const html = await getTestPageHTML();
+      return new Response(html, {
+        headers: { 
+          'Content-Type': 'text/html; charset=utf-8',
           'Access-Control-Allow-Origin': '*'
         }
       });
@@ -1667,4 +1680,270 @@ function generateSlugFromContent(text) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .substring(0, 50) || `tg-post-${Date.now().toString(36)}`;
+}
+
+/**
+ * 获取Telegram测试页面HTML
+ */
+async function getTestPageHTML() {
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>斯基GPT - Telegram→Payload测试</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .status { 
+            padding: 10px; 
+            border-radius: 6px; 
+            margin: 10px 0; 
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 6px; 
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        textarea { 
+            width: 100%; 
+            min-height: 150px; 
+            padding: 10px; 
+            border: 1px solid #ddd; 
+            border-radius: 6px;
+            font-family: monospace;
+        }
+        .endpoint { 
+            background: #e9ecef; 
+            padding: 8px 12px; 
+            border-radius: 4px; 
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>📱 斯基GPT - Telegram→Payload 测试工具</h1>
+    
+    <div class="container">
+        <h2>🔗 Webhook 端点</h2>
+        <div class="endpoint" id="webhookUrl">
+            https://siji-worker-v2.chengqiangshang.workers.dev/telegram-webhook
+        </div>
+        <button onclick="copyToClipboard('webhookUrl')">复制链接</button>
+        <button onclick="testWebhook()">测试连接</button>
+    </div>
+
+    <div class="container">
+        <h2>🧪 模拟 Telegram 消息测试</h2>
+        <textarea id="testMessage" placeholder="编辑测试消息JSON...">{
+  "message": {
+    "message_id": 12345,
+    "chat": {
+      "id": -1001234567890,
+      "type": "channel",
+      "title": "斯基GPT测试频道"
+    },
+    "date": ${Math.floor(Date.now() / 1000)},
+    "text": "🚀 新AI突破：GPT-5正式发布！\\n\\nOpenAI今天宣布了革命性的GPT-5模型，在推理、创造性和多模态理解方面实现重大突破。\\n\\n核心亮点：\\n• 推理能力提升300%\\n• 支持视频、音频、文本多模态\\n• 实时交互响应\\n• 更强的代码生成能力\\n\\n这标志着人工智能进入新的发展阶段。\\n\\n#GPT5 #OpenAI #人工智能 #技术突破\\n\\nhttps://openai.com/gpt-5-announcement",
+    "entities": [
+      {"type": "hashtag", "offset": 150, "length": 5},
+      {"type": "hashtag", "offset": 156, "length": 7},
+      {"type": "hashtag", "offset": 164, "length": 5},
+      {"type": "hashtag", "offset": 170, "length": 5},
+      {"type": "url", "offset": 180, "length": 35}
+    ]
+  }
+}</textarea>
+        <br>
+        <button onclick="sendTestMessage()" id="sendBtn">🚀 发送测试消息</button>
+        <button onclick="loadPreset('news')">📰 新闻模板</button>
+        <button onclick="loadPreset('tech')">💻 技术模板</button>
+        <button onclick="loadPreset('ai')">🤖 AI模板</button>
+    </div>
+
+    <div class="container">
+        <h2>📊 测试结果</h2>
+        <div id="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>⚙️ 系统状态检查</h2>
+        <button onclick="checkHealth()">🔍 检查健康状态</button>
+        <button onclick="checkRSSTest()">📡 测试RSS聚合</button>
+        <div id="systemStatus"></div>
+    </div>
+
+    <script>
+        async function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            await navigator.clipboard.writeText(text);
+            showStatus('✅ 已复制到剪贴板', 'success');
+        }
+
+        async function testWebhook() {
+            try {
+                const response = await fetch('/telegram-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ test: true })
+                });
+                
+                const text = await response.text();
+                if (response.ok) {
+                    showStatus('✅ Webhook连接正常', 'success');
+                } else {
+                    showStatus(\`⚠️ Webhook响应: \${response.status}\`, 'info');
+                }
+            } catch (error) {
+                showStatus(\`❌ 连接失败: \${error.message}\`, 'error');
+            }
+        }
+
+        async function sendTestMessage() {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true;
+            btn.textContent = '发送中...';
+            
+            try {
+                const message = JSON.parse(document.getElementById('testMessage').value);
+                const response = await fetch('/telegram-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(message)
+                });
+
+                const result = await response.json();
+                document.getElementById('result').innerHTML = \`
+                    <pre style="background: #f8f9fa; padding: 15px; border-radius: 6px; overflow-x: auto;">
+\${JSON.stringify(result, null, 2)}
+                    </pre>
+                \`;
+                
+                if (result.success) {
+                    showStatus('🎉 消息处理成功！', 'success');
+                } else {
+                    showStatus(\`⚠️ 处理失败: \${result.error || 'Unknown error'}\`, 'error');
+                }
+            } catch (error) {
+                showStatus(\`❌ 测试失败: \${error.message}\`, 'error');
+                document.getElementById('result').innerHTML = \`
+                    <div class="error">错误: \${error.message}</div>
+                \`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 发送测试消息';
+            }
+        }
+
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                document.getElementById('systemStatus').innerHTML = \`
+                    <div class="success">
+                        <strong>✅ 系统健康状态</strong><br>
+                        服务: \${data.service}<br>
+                        版本: \${data.version}<br>
+                        AI提供商: \${data.provider}<br>
+                        RSS策略: \${data.rss_strategy}<br>
+                        Telegram: \${data.telegram_webhook}<br>
+                        功能: \${data.features ? data.features.join(', ') : 'N/A'}<br>
+                        时间: \${data.timestamp}
+                    </div>
+                \`;
+            } catch (error) {
+                document.getElementById('systemStatus').innerHTML = \`
+                    <div class="error">❌ 健康检查失败: \${error.message}</div>
+                \`;
+            }
+        }
+
+        async function checkRSSTest() {
+            showStatus('🔄 正在测试RSS聚合...', 'info');
+            try {
+                const response = await fetch('/test', { method: 'POST' });
+                const data = await response.json();
+                document.getElementById('systemStatus').innerHTML = \`
+                    <div class="info">
+                        <strong>📡 RSS测试结果</strong><br>
+                        处理文章: \${data.count} 篇<br>
+                        发布文章: \${data.published} 篇<br>
+                        AI提供商: \${data.provider}<br>
+                        执行日志: \${data.logs ? data.logs.length : 0} 条
+                    </div>
+                \`;
+                showStatus('✅ RSS测试完成', 'success');
+            } catch (error) {
+                showStatus(\`❌ RSS测试失败: \${error.message}\`, 'error');
+            }
+        }
+
+        function loadPreset(type) {
+            const presets = {
+                news: {
+                    text: "📰 重大科技新闻：苹果发布AI芯片\\n\\n苹果公司今日正式发布了专为AI计算设计的M3 Ultra芯片，性能较上一代提升40%。\\n\\n关键特性：\\n• 神经网络引擎性能翻倍\\n• 支持端到端AI推理\\n• 功耗降低25%\\n\\n#Apple #AI芯片 #M3Ultra #科技新闻\\n\\nhttps://apple.com/m3-ultra"
+                },
+                tech: {
+                    text: "💻 开发者福音：新框架发布\\n\\nNext.js 14正式发布，带来了服务器组件和边缘运行时的重大改进。\\n\\n新特性：\\n• 服务器组件稳定版\\n• Turbopack性能提升\\n• 改进的开发体验\\n\\n#NextJS #React #前端开发 #JavaScript\\n\\nhttps://nextjs.org/blog/next-14"
+                },
+                ai: {
+                    text: "🤖 AI领域突破：多模态大模型\\n\\nGoogle DeepMind发布了Gemini Pro Vision，实现了文本、图像、音频的统一理解。\\n\\n技术亮点：\\n• 多模态融合理解\\n• 实时视觉问答\\n• 代码生成能力增强\\n\\n这为AI应用开辟了新的可能性。\\n\\n#Gemini #DeepMind #多模态AI #机器学习\\n\\nhttps://deepmind.google/gemini"
+                }
+            };
+
+            if (presets[type]) {
+                const template = {
+                    message: {
+                        message_id: Math.floor(Math.random() * 100000),
+                        chat: {
+                            id: -1001234567890,
+                            type: "channel",
+                            title: "斯基GPT测试频道"
+                        },
+                        date: Math.floor(Date.now() / 1000),
+                        text: presets[type].text
+                    }
+                };
+                document.getElementById('testMessage').value = JSON.stringify(template, null, 2);
+                showStatus(\`📝 已加载\${type === 'news' ? '新闻' : type === 'tech' ? '技术' : 'AI'}模板\`, 'info');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = \`status \${type}\`;
+            statusDiv.textContent = message;
+            document.body.appendChild(statusDiv);
+            
+            setTimeout(() => {
+                statusDiv.remove();
+            }, 3000);
+        }
+
+        // 页面加载时检查系统状态
+        window.addEventListener('load', checkHealth);
+    </script>
+</body>
+</html>`;
 }

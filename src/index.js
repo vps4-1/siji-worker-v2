@@ -111,35 +111,35 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 内容判断和快速筛选 - 使用更强模型确保准确判断
+    // 内容判断和快速筛选 - Grok优先策略
     screening: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 理解能力更强
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 判断能力好
-      'groq/llama-3.1-70b-versatile',      // Groq 70B - 更强理解
-      'groq/llama-3.1-8b-instant'          // Groq 8B - 最后备用
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 速度+理解力+低成本的完美组合
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 备用高质量判断
+      'groq/llama-3.1-70b-versatile',      // Groq 70B - 第二备用
+      'groq/llama-3.1-8b-instant'          // Groq 8B - 最终备用
     ],
     
-    // 详细摘要生成 - 质量与速度平衡
+    // 详细摘要生成 - Grok优先策略
     summarization: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 编程/多语言优秀
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 长上下文处理
-      'groq/llama-3.1-70b-versatile',      // Groq 70B - 高质量内容
-      'deepseek/deepseek-chat'              // DeepSeek - 成本备用
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 速度+质量+成本优化
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 备用高质量
+      'groq/llama-3.1-70b-versatile',      // Groq 70B - 第二备用
+      'deepseek/deepseek-chat'              // DeepSeek - 最终备用
     ],
     
-    // 翻译和术语标注 - 多语言能力优先  
+    // 翻译和术语标注 - Grok优先策略
     translation: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 多语言+Agent能力
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 中英文理解
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 多语言+成本优化
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 备用Agent能力
       'groq/llama-3.1-70b-versatile',      // Groq 70B - 专业术语
       'deepseek/deepseek-chat'              // DeepSeek - 技术术语备用
     ],
     
-    // 默认降级序列 - 速度与成本优化
+    // 默认降级序列 - Grok优先策略
     fallback: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 延迟低+准确高
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 预算敏感
-      'groq/llama-3.1-8b-instant',         // Groq 8B - 超快速度
+      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 速度+成本+理解力的完美组合
+      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 备用高质量
+      'groq/llama-3.1-8b-instant',         // Groq 8B - 超速备用
       'deepseek/deepseek-chat'              // DeepSeek - 最终备用
     ]
   }

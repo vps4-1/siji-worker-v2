@@ -266,26 +266,73 @@ const ROTATION_RSS_POOLS = {
   
   // 综合时段 (15:00) - 媒体、工具、其他
   GLOBAL: [
+    // 原有GLOBAL源
     'https://aiacceleratorinstitute.com/rss/',
     'https://ai-techpark.com/category/ai/feed/',
-    'https://aibusiness.com/rss.xml',
     'https://www.artificialintelligence-news.com/feed/rss/',
-    'https://aimodels.substack.com/feed',
-    'https://aisnakeoil.substack.com/feed',
-    'https://siliconangle.com/category/ai/feed',
     'https://siliconangle.com/category/big-data/feed',
-    'https://insidebigdata.com/feed',
     'https://datafloq.com/feed/?post_type=post',
-    'https://syncedreview.com/feed',
-    'https://bdtechtalks.com/feed/',
     'https://www.unite.ai/feed/',
-    'https://voicebot.ai/feed/',
-    'https://knowtechie.com/category/ai/feed/',
     'https://feeds.arstechnica.com/arstechnica/index',
     'https://www.engadget.com/rss.xml',
     'https://gizmodo.com/rss',
     'https://www.techspot.com/backend.xml',
-    'https://thenewstack.io/feed'
+    
+    // 从AMERICAS池补充
+    'https://www.404media.co/rss',
+    'https://techcrunch.com/feed/',
+    'https://venturebeat.com/category/ai/feed/',
+    'https://www.wired.com/feed/tag/ai/latest/rss',
+    'https://feeds.businessinsider.com/custom/all',
+    'https://news.crunchbase.com/feed',
+    'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml',
+    'https://www.theverge.com/rss/index.xml',
+    'https://blog.paperspace.com/rss/',
+    'https://replicate.com/blog/rss',
+    'https://www.oneusefulthing.org/feed',
+    'https://feeds.bloomberg.com/technology/news.rss',
+    'https://blog.tensorflow.org/feeds/posts/default?alt=rss',
+    'https://bair.berkeley.edu/blog/feed.xml',
+    'https://crfm.stanford.edu/feed',
+    'https://news.mit.edu/topic/mitmachine-learning-rss.xml',
+    'https://www.technologyreview.com/feed/',
+    'https://blog.ml.cmu.edu/feed',
+    
+    // 从EUROPE池补充
+    'https://magazine.sebastianraschka.com/feed',
+    'https://www.nature.com/subjects/machine-learning.rss',
+    'https://www.sciencedirect.com/science/journal/00200255/rss',
+    'https://blog.deepmind.com/rss/',
+    'https://www.imperial.ac.uk/news/rss/section/technology',
+    'https://blog.research.google/feeds/posts/default?alt=rss',
+    'https://eng.uber.com/category/articles/ai/feed',
+    'https://www.anaconda.com/blog/feed',
+    'https://analyticsindiamag.com/feed/',
+    'https://stability.ai/blog?format=rss',
+    
+    // 从ASIA池补充
+    'https://theconversation.com/europe/topics/artificial-intelligence-ai-90/articles.atom',
+    'https://www.theguardian.com/technology/artificialintelligenceai/rss',
+    'https://spacenews.com/tag/artificial-intelligence/feed/',
+    'https://futurism.com/categories/ai-artificial-intelligence/feed',
+    'https://blog.twitter.com/en_us/rss',
+    'https://research.fb.com/feed/',
+    'https://blogs.nvidia.com/feed/',
+    'https://ai.googleblog.com/feeds/posts/default',
+    'https://ainowinstitute.org/category/news/feed',
+    'https://blog.baidu.com/rss',
+    
+    // 新增国际AI源
+    'https://www.artificialintelligence-news.com/feed/',
+    'https://artificialintelligenceact.com/feed/',
+    'https://www.marktechpost.com/feed/',
+    'https://towardsdatascience.com/feed',
+    'https://machinelearningmastery.com/feed/',
+    'https://www.kdnuggets.com/feed',
+    'https://blog.paperswithcode.com/feed/',
+    'https://research.google/rss/',
+    'https://openai.com/research/rss/',
+    'https://deepmind.com/research/rss/'
   ]
 };
 
@@ -340,13 +387,18 @@ function getConfiguredRSSFeeds(env, cronExpression) {
     const finalFeeds = uniqueFeeds.slice(0, RSS_CONFIG.MAX_SOURCES_PER_RUN);
     
     console.log(`[RSS策略] 时段: ${timeZone}, 核心: ${CORE_RSS_FEEDS.length}, 轮换: ${rotationFeeds.length}, 总计: ${finalFeeds.length}`);
+    console.log(`[RSS策略] 配置验证 - 核心源数量: ${CORE_RSS_FEEDS.length}, 应为25`);
+    console.log(`[RSS策略] 配置验证 - 轮换源数量: ${rotationFeeds.length}, 应为50`);
+    console.log(`[RSS策略] 配置验证 - 最终源数量: ${finalFeeds.length}, 应为75`);
     
     return finalFeeds;
     
   } catch (error) {
     console.error('[RSS配置] 错误:', error.message);
-    // 降级：只返回核心源
-    return CORE_RSS_FEEDS.slice(0, 15);
+    console.error('[RSS配置] 堆栈:', error.stack);
+    // 降级：返回所有核心源（而非只有15个）
+    console.log(`[RSS配置] 降级模式：返回 ${CORE_RSS_FEEDS.length} 个核心源`);
+    return CORE_RSS_FEEDS; // 返回全部25个核心源
   }
 }
 

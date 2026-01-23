@@ -1175,11 +1175,10 @@ async function sendBilingualToTelegram(env, article, logs) {
   const slug = generateSlug(article.title, article.title_en, article.keywords_en || []);
   const sijigptUrl = `https://sijigpt.com/posts/${slug}`;
   
-  // 修改后的消息格式：使用中文标题 + sijigpt链接 + 中文摘要 + 原文链接
+  // TG消息格式：中文标题带超链接 + 中文摘要 + 原文链接
   const message = `📰 斯基GPT发布文章摘要
 
-**${article.title}**
-${sijigptUrl}
+[**${article.title}**](${sijigptUrl})
 
 ${article.summary}
 

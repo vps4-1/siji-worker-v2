@@ -1745,6 +1745,36 @@ async function publishToPayloadCMS(env, content) {
       };
     }
 
+    // 🧪 模拟模式检测
+    if (payloadEndpoint.startsWith('mock://')) {
+      console.log('[Payload] 🧪 模拟模式激活');
+      
+      // 模拟成功响应
+      const mockId = `mock_${Date.now()}`;
+      const mockSlug = generateSlugFromContent(content.text);
+      
+      console.log(`[Payload] 📄 模拟发布: ${content.text.substring(0, 50)}...`);
+      console.log(`[Payload] 🏷️  标签: ${content.hashtags.join(', ')}`);
+      console.log(`[Payload] 📅 时间: ${content.date}`);
+      
+      return {
+        success: true,
+        id: mockId,
+        slug: mockSlug,
+        mockMode: true,
+        previewData: {
+          title: content.title || 'Telegram频道消息',
+          content: content.text,
+          tags: content.hashtags,
+          source: 'telegram_manual',
+          publishedAt: content.date,
+          link: content.link,
+          chat_id: content.chat_id,
+          message_id: content.message_id
+        }
+      };
+    }
+
     // 构建Payload文档数据 - 简化版本，不使用AI处理
     const payloadDoc = {
       content: content.text, // 直接使用原始文本内容

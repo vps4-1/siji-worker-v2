@@ -1292,6 +1292,21 @@ async function callClaudeAgent(env, title, description) {
 // ==================== Payload 发布 (修复版) ====================
 
 async function publishToPayload(env, article, logs) {
+  // 🧪 检查模拟模式
+  const payloadEndpoint = env.PAYLOAD_API_ENDPOINT;
+  if (payloadEndpoint && payloadEndpoint.startsWith('mock://')) {
+    logs.push('[Payload] 🧪 模拟模式激活');
+    
+    // 模拟成功响应
+    const mockId = `mock_${Date.now()}`;
+    const mockSlug = generateSlug(article.title, article.title_en, article.summary_en?.keywords || []);
+    
+    logs.push(`[Payload] 📄 模拟发布: ${article.title.substring(0, 50)}...`);
+    logs.push(`[Payload] ✅ 发布成功 ID: ${mockId}`);
+    
+    return true;
+  }
+
   // 步骤 1: 先登录获取 Token
   let token = env.PAYLOAD_TOKEN;
   

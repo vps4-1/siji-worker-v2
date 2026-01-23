@@ -1801,7 +1801,7 @@ async function publishToPayloadCMS(env, content) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `API-Key ${payloadApiKey}`,
+        'Authorization': payloadApiKey, // 使用完整的JWT token
         'User-Agent': 'SijiGPT-TelegramBot/1.0'
       },
       body: JSON.stringify(payloadDoc)
@@ -1816,9 +1816,23 @@ async function publishToPayloadCMS(env, content) {
       };
     } else {
       const errorText = await response.text();
+      
+      // 特殊处理只读权限问题
+      if (response.status === 405) {
+        return {
+          success: false,
+          error: 'Payload CMS只读模式 - 当前Token仅有查看权限，无法创建文章',
+          readonly: true,
+          canRead: true,
+          suggestion: '需要管理员权限或不同的Token来创建文章',
+          currentEndpoint: payloadEndpoint
+        };
+      }
+      
       return {
         success: false,
-        error: `Payload API错误 (${response.status}): ${errorText}`
+        error: `Payload API错误 (${response.status}): ${errorText}`,
+        status: response.status
       };
     }
 

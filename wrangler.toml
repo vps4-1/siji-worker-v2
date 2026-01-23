@@ -31,12 +31,17 @@ TELEGRAM_BOT_TOKEN = "8357258804:AAFStW2STWQIEIKbe0jLtXoz51r5-B_MsGc"
 TELEGRAM_CHANNEL_ID = "-1003648041127"
 TG_REPLY_ON_SUCCESS = "true"
 
-# 📱 Telegram → Payload 配置 (🧪 模拟测试模式)
-PAYLOAD_API_ENDPOINT = "mock://test-mode"
-PAYLOAD_API_KEY = "mock_test_key"
+# 📱 Telegram → Payload 配置 (真实连接)
+PAYLOAD_API_ENDPOINT = "https://payload-website-starter-onbwoq68m-billboings-projects.vercel.app"
+PAYLOAD_API_KEY = "JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiY29sbGVjdGlvbiI6InVzZXJzIiwiZW1haWwiOiJhZG1pbkB6aHVqaS5nZCIsInNpZCI6ImE5NDk0NjAwLTMwYWMtNDIwOC05M2MzLTNjZTliMTNlYzZiZCIsImlhdCI6MTc2OTE3NzkzNiwiZXhwIjoxNzY5MTg1MTM2fQ.kWvEjigoT9xOACWMmtMMblUeK9KHEF-Xt9ur5sLNTQg"
 
-# 📱 真实Payload配置 (待启用)
-# PAYLOAD_API_ENDPOINT = "https://payload-website-starter-onbwoq68m-billboings-projects.vercel.app" 
-# PAYLOAD_API_KEY = ""             # 需要从Payload后台获取或取消Vercel保护
+# 📱 Payload只读模式说明:
+# 该Payload实例目前只支持GET操作，不支持POST创建文章
+# 可以验证连接正常，查看现有文章数据结构
+# 如需创建功能，需要检查Payload配置或使用管理员权限
+
+# 📱 模拟模式配置 (备用)
+# PAYLOAD_API_ENDPOINT = "mock://test-mode"
+# PAYLOAD_API_KEY = "mock_test_key"
 
 # RSS sources are now defined in the code to avoid 5.1KB environment variable limit

@@ -13,11 +13,13 @@
 - **消息推送**: Telegram Bot API - 实时消息传递
 - **内容管理**: Payload CMS集成 - 现代化无头CMS
 
-### AI模型策略
+### AI模型策略 (RSS内容处理专用)
 - **内容筛选**: Grok 4.1 Fast - 高速内容相关性判断
-- **摘要生成**: Claude 3.5 Haiku - 高质量双语摘要
+- **摘要生成**: Claude 3.5 Haiku - 高质量双语摘要  
 - **翻译处理**: Claude 3.5 Haiku - 精准多语言支持
 - **备用降级**: Groq Llama 70B - 可靠性保障
+
+注：Telegram个人内容直接发布，不经过AI处理
 
 ## 🔄 实现方式
 
@@ -59,11 +61,9 @@
    - 链接预览和标签系统
 
 2. **双向集成**:
-   - Telegram → Payload: 频道消息自动发布到CMS
+   - Telegram → Payload: 频道手动消息直接发布到CMS（防循环机制）
    - RSS → Telegram: AI筛选内容推送到频道
-   - 完整的Webhook处理机制
-
-## 🛠️ 使用平台
+   - 完整的Webhook处理和同步删除机制
 
 ### 部署平台
 - **Cloudflare Workers**: 边缘计算平台，全球150+数据中心
@@ -80,23 +80,25 @@
 - **Cloudflare Analytics**: 性能和使用分析
 - **自定义日志系统**: 详细的操作日志记录
 
-## 🤖 AI模型选择
+## 🤖 AI模型选择 (仅用于RSS内容处理)
 
 ### 主力模型组合
 1. **Grok 4.1 Fast (x-ai/grok-2-1212)**
    - 优势: 超高速度、理解能力强、成本效率高
-   - 用途: 内容相关性筛选、实时判断
+   - 用途: RSS内容相关性筛选、实时判断
    - 特点: 长上下文支持、无地域限制
 
 2. **Claude 3.5 Haiku (anthropic/claude-3-5-haiku)**
    - 优势: 优秀的指令遵循、多语言处理、稳定输出
-   - 用途: 内容摘要生成、翻译处理
+   - 用途: RSS内容摘要生成、翻译处理
    - 特点: JSON格式输出稳定、理解力强
 
 3. **Groq Llama 70B (groq/llama-3.1-70b-versatile)**
    - 优势: 高质量输出、开源模型、性价比高
    - 用途: 备用降级、复杂处理任务
    - 特点: 可靠性高、兼容性好
+
+**注意**: Telegram频道的手动内容直接发布到Payload CMS，不经过AI模型处理，保持原始性和真实性。
 
 ### 成本优化策略
 - 移除昂贵的Claude 3.5 Sonnet ($3/1M tokens)

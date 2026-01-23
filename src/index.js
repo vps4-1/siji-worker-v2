@@ -1410,25 +1410,36 @@ async function handleTelegramToPayload(env, telegramUpdate) {
   logs.push('[TG→Payload] 开始处理Telegram消息');
 
   try {
+    // 检查是否为删除操作
+    if (telegramUpdate.edited_channel_post?.text === '' || 
+        telegramUpdate.edited_message?.text === '' ||
+        telegramUpdate.channel_post_deleted || 
+        telegramUpdate.message_deleted) {
+      
+      const messageId = telegramUpdate.edited_channel_post?.message_id || 
+                       telegramUpdate.edited_message?.message_id ||
+                       telegramUpdate.channel_post_deleted?.message_id ||
+                       telegramUpdate.message_deleted?.message_id;
+      
+      if (messageId) {
+        logs.push(`[TG→Payload] 🗑️ 检测到删除操作，消息ID: ${messageId}`);
+        const deleteResult = await deleteFromPayloadCMS(env, messageId);
+        logs.push(`[TG→Payload] ${deleteResult.success ? '✅ 删除成功' : '❌ 删除失败'}`);
+        return { success: deleteResult.success, logs, action: 'delete' };
+      }
+    }
+
     // 解析Telegram消息
     const messageData = parseTelegramMessage(telegramUpdate);
     if (!messageData) {
-      logs.push('[TG→Payload] ❌ 无效的Telegram消息格式');
+      logs.push('[TG→Payload] ❌ 无效的Telegram消息格式或RSS内容被过滤');
       return { success: false, logs, error: '无效的Telegram消息格式' };
     }
 
     logs.push(`[TG→Payload] ✅ 解析消息: ${messageData.text?.substring(0, 100)}...`);
 
-    // AI处理内容（可选）
-    let processedContent = messageData;
-    if (env.AI_ENHANCE_TG_CONTENT === 'true') {
-      logs.push('[TG→Payload] 🤖 使用AI增强内容...');
-      processedContent = await enhanceContentWithAI(env, messageData);
-      logs.push('[TG→Payload] ✅ AI增强完成');
-    }
-
-    // 发布到Payload CMS
-    const payloadResult = await publishToPayloadCMS(env, processedContent);
+    // 直接发布到Payload CMS (不使用AI处理)
+    const payloadResult = await publishToPayloadCMS(env, messageData);
     if (payloadResult.success) {
       logs.push(`[TG→Payload] 🎉 发布成功 ID: ${payloadResult.id}`);
       
@@ -1442,7 +1453,8 @@ async function handleTelegramToPayload(env, telegramUpdate) {
         success: true,
         logs,
         payload_id: payloadResult.id,
-        payload_slug: payloadResult.slug
+        payload_slug: payloadResult.slug,
+        action: 'publish'
       };
     } else {
       logs.push(`[TG→Payload] ❌ 发布失败: ${payloadResult.error}`);
@@ -1490,21 +1502,11 @@ function parseTelegramMessage(update) {
     document: message.document || null,
     video: message.video || null,
     link: null,
-    title: null,
-    description: null,
     hashtags: [],
     is_manual_post: true // 标记为手动发布的内容
   };
-    photo: message.photo || null,
-    document: message.document || null,
-    video: message.video || null,
-    link: null,
-    title: null,
-    description: null,
-    hashtags: []
-  };
 
-  // 提取链接
+  // 提取链接和标签
   if (message.entities) {
     for (const entity of message.entities) {
       if (entity.type === 'url') {
@@ -1516,17 +1518,8 @@ function parseTelegramMessage(update) {
       }
       if (entity.type === 'hashtag') {
         const hashtag = result.text.substring(entity.offset, entity.offset + entity.length);
-        result.hashtags.push(hashtag);
+        result.hashtags.push(hashtag.replace('#', '')); // 移除#号，只保留标签文本
       }
-    }
-  }
-
-  // 智能提取标题和描述
-  const lines = result.text.split('\n').filter(line => line.trim());
-  if (lines.length > 0) {
-    result.title = lines[0].substring(0, 200); // 第一行作为标题
-    if (lines.length > 1) {
-      result.description = lines.slice(1).join('\n').substring(0, 500); // 后续行作为描述
     }
   }
 
@@ -1694,12 +1687,10 @@ async function publishToPayloadCMS(env, content) {
       };
     }
 
-    // 构建Payload文档数据
+    // 构建Payload文档数据 - 简化版本，不使用AI处理
     const payloadDoc = {
-      title: content.title || 'Telegram频道消息',
-      slug: generateSlugFromContent(content.title || content.text),
-      content: content.description || content.text,
-      excerpt: content.summary || (content.text?.substring(0, 300) + '...'),
+      content: content.text, // 直接使用原始文本内容
+      excerpt: content.text?.substring(0, 300) || '', // 简单截取前300字符作为摘要
       status: 'published',
       publishedAt: content.date,
       source: 'telegram_manual', // 标识为手动Telegram内容
@@ -1708,15 +1699,13 @@ async function publishToPayloadCMS(env, content) {
         telegram_chat_id: content.chat_id,
         telegram_message_id: content.message_id,
         original_text: content.text,
-        hashtags: content.hashtags,
-        ai_enhanced: !!content.ai_tags,
-        is_manual_post: content.is_manual_post || true, // 明确标记为手动发布
-        content_type: 'user_generated', // 用户原创内容
-        publish_source: 'telegram_channel', // 来源频道
-        rss_filtered: false // 不是RSS聚合内容
+        is_manual_post: content.is_manual_post || true,
+        content_type: 'user_generated',
+        publish_source: 'telegram_channel',
+        rss_filtered: false
       },
-      tags: [...(content.hashtags || []), ...(content.ai_tags || [])],
-      category: content.ai_category || 'Personal' // 个人内容默认分类
+      tags: content.hashtags || [], // 直接使用#标签作为关键词
+      // 不再生成title，让Payload使用默认或根据内容自动生成
     };
 
     // 调用Payload API
@@ -1754,11 +1743,74 @@ async function publishToPayloadCMS(env, content) {
 }
 
 /**
- * 发送Telegram回复消息
+ * 从Payload CMS删除对应的文章
  * @param {Object} env - 环境变量
- * @param {string} chatId - 聊天ID
- * @param {string} message - 消息内容
+ * @param {number} telegramMessageId - Telegram消息ID
+ * @returns {Object} 删除结果
  */
+async function deleteFromPayloadCMS(env, telegramMessageId) {
+  try {
+    const payloadEndpoint = env.PAYLOAD_API_ENDPOINT;
+    const payloadApiKey = env.PAYLOAD_API_KEY;
+    
+    if (!payloadEndpoint || !payloadApiKey) {
+      return { 
+        success: false, 
+        error: '未配置Payload CMS连接信息' 
+      };
+    }
+
+    // 1. 先查找对应的文章
+    const searchUrl = `${payloadEndpoint}/api/posts?where[sourceData.telegram_message_id][equals]=${telegramMessageId}`;
+    const searchResponse = await fetch(searchUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `API-Key ${payloadApiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!searchResponse.ok) {
+      return { success: false, error: `查找失败: ${searchResponse.status}` };
+    }
+
+    const searchResult = await searchResponse.json();
+    
+    if (!searchResult.docs || searchResult.docs.length === 0) {
+      return { success: false, error: `未找到对应的文章 (TG消息ID: ${telegramMessageId})` };
+    }
+
+    // 2. 删除找到的文章
+    const article = searchResult.docs[0];
+    const deleteResponse = await fetch(`${payloadEndpoint}/api/posts/${article.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `API-Key ${payloadApiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (deleteResponse.ok) {
+      return {
+        success: true,
+        id: article.id,
+        telegram_message_id: telegramMessageId
+      };
+    } else {
+      const errorText = await deleteResponse.text();
+      return {
+        success: false,
+        error: `删除失败 (${deleteResponse.status}): ${errorText}`
+      };
+    }
+
+  } catch (error) {
+    return {
+      success: false,
+      error: `删除操作失败: ${error.message}`
+    };
+  }
+}
 async function sendTelegramReply(env, chatId, message) {
   try {
     const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -1869,7 +1921,8 @@ async function getTestPageHTML() {
             • 检测RSS源域名链接<br>
             • 匹配双语摘要格式<br>
             • 时间匹配系统推送时段<br>
-            <strong>🎯 只发布手动原创内容到Payload</strong>
+            <strong>🎯 只发布手动原创内容到Payload（不使用AI处理）</strong><br>
+            <strong>🗑️ 支持同步删除：TG删除消息时自动删除Payload文章</strong>
         </div>
     </div>
 
@@ -2040,7 +2093,7 @@ async function getTestPageHTML() {
                     text: "📰 重大科技新闻：苹果发布AI芯片\\n\\n苹果公司今日正式发布了专为AI计算设计的M3 Ultra芯片，性能较上一代提升40%。\\n\\n关键特性：\\n• 神经网络引擎性能翻倍\\n• 支持端到端AI推理\\n• 功耗降低25%\\n\\n#Apple #AI芯片 #M3Ultra #科技新闻\\n\\nhttps://apple.com/m3-ultra"
                 },
                 tech: {
-                    text: "💻 开发者福音：新框架发布\\n\\nNext.js 14正式发布，带来了服务器组件和边缘运行时的重大改进。\\n\\n新特性：\\n• 服务器组件稳定版\\n• Turbopack性能提升\\n• 改进的开发体验\\n\\n#NextJS #React #前端开发 #JavaScript\\n\\nhttps://nextjs.org/blog/next-14"
+                    text: "💻 开发思考：Next.js的发展方向\\n\\n最近在使用Next.js 14，感受到了服务器组件的强大。这让我思考前端开发的未来：\\n\\n• 服务端渲染回归主流\\n• 边缘计算的重要性\\n• 开发体验的持续优化\\n\\n作为开发者，我们需要拥抱这些变化。\\n\\n#NextJS #前端开发 #个人思考\\n\\n分享一些学习心得..."
                 }
             };
 

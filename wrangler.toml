@@ -23,6 +23,6 @@ DAILY_TARGET = "10"
 TELEGRAM_CHANNEL = "@sijigpt"
 
 # 模型优先级：Claude > Grok > 千问
-OPENROUTER_MODELS = "anthropic/claude-3.5-sonnet,x-ai/grok-2-1212,qwen/qwen-2.5-72b-instruct"
+OPENROUTER_MODELS = "groq/llama-3.1-8b-instant,anthropic/claude-3-5-haiku,x-ai/grok-2-1212,groq/llama-3.1-70b-versatile"
 
 # RSS sources are now defined in the code to avoid 5.1KB environment variable limit

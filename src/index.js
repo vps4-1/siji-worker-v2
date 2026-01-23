@@ -104,7 +104,7 @@ const AI_PROVIDERS = {
 
 const CLAUDE_CONFIG = {
   endpoint: 'https://api.anthropic.com/v1/messages',
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'anthropic/claude-3-5-haiku',  // 改为低成本的Haiku
   version: '2023-06-01'
 };
 
@@ -443,7 +443,7 @@ Keywords:`;
         'X-Title': 'SiJiGPT'
       },
       body: JSON.stringify({
-        model: 'anthropic/claude-3.5-sonnet',
+        model: 'groq/llama-3.1-8b-instant',  // 改为最快的Groq模型
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 50,
         temperature: 0.3

@@ -1,28 +1,24 @@
-# 📱 Telegram → Payload 发布系统配置指南
+# 📱 Telegram → Payload 直接发布系统配置指南
 
 ## 🎯 功能概述
 
-实现从Telegram频道**手动消息**自动发布到Payload CMS的完整工作流：
-- **手动TG内容** → **AI处理** → **Payload CMS** → **可选回复**
+实现从Telegram频道**手动消息**直接发布到Payload CMS的简洁工作流：
+- **手动TG内容** → **直接发布** → **Payload CMS** → **可选回复**
 - **🚫 防循环发布**: 智能识别并阻止RSS自动内容回流
+- **🗑️ 同步删除**: TG删除消息时，自动删除Payload对应文章
 
-## 🛡️ 防循环发布机制
+## 🎯 设计理念
 
-### 自动识别RSS内容特征
-1. **Bot消息检测**: 识别通过Bot发送的消息
-2. **格式特征识别**: 
-   - 📰 摘要：格式
-   - 🔗 来源：链接
-   - 📊 发布时间：时间戳
-   - 🏷️ 标签：格式化标签
-   - "由...自动推送" 等标识
-3. **域名检测**: RSS源域名链接（openai.com、deepmind.com等）
-4. **双语格式**: "English Summary" + "中文摘要" 特有格式
-5. **时间匹配**: 系统推送时间（00:00/04:00/07:00/11:00/14:00 UTC ±10分钟）
+### 简洁直接
+- **不使用AI处理**: 保持内容的原始性和真实性
+- **不生成标题**: 让Payload根据内容自动处理
+- **直接用#标签**: 作为文章关键词和分类
+- **原文发布**: 完整保留用户的想法和表达
 
-### 只发布原创内容
-✅ **会发布**: 用户手动编写的想法、观点、讨论  
-🚫 **不发布**: RSS系统自动推送的技术资讯
+### 智能同步
+- **双向同步**: 发布和删除都能同步
+- **防循环机制**: 只发布手动内容，不发布RSS聚合内容
+- **实时响应**: Webhook即时处理消息变化
 
 ## 🔧 配置步骤
 
@@ -63,9 +59,10 @@ PAYLOAD_API_ENDPOINT = "https://your-payload-cms.com"
 PAYLOAD_API_KEY = "your-payload-api-key"
 
 # 可选配置
-AI_ENHANCE_TG_CONTENT = "true"    # 使用AI增强内容
 TG_REPLY_ON_SUCCESS = "true"      # 发布成功后回复确认
 ```
+
+注意：移除了 `AI_ENHANCE_TG_CONTENT` 配置，因为现在直接发布，不使用AI处理。
 
 ### 4. Payload CMS 配置
 
@@ -76,70 +73,78 @@ TG_REPLY_ON_SUCCESS = "true"      # 发布成功后回复确认
 {
   slug: 'posts',
   fields: [
-    { name: 'title', type: 'text', required: true },
-    { name: 'slug', type: 'text', unique: true },
-    { name: 'content', type: 'richText' },
-    { name: 'excerpt', type: 'textarea' },
+    { name: 'content', type: 'richText', required: true },  // 原始TG内容
+    { name: 'excerpt', type: 'textarea' },                  // 自动截取的摘要
     { name: 'status', type: 'select', options: ['draft', 'published'] },
     { name: 'publishedAt', type: 'date' },
-    { name: 'source', type: 'text' },
-    { name: 'sourceUrl', type: 'text' },
-    { name: 'sourceData', type: 'json' },
-    { name: 'tags', type: 'array', of: { type: 'text' } },
-    { name: 'category', type: 'text' }
+    { name: 'source', type: 'text' },                       // 'telegram_manual'
+    { name: 'sourceUrl', type: 'text' },                    // TG消息中的链接
+    { name: 'sourceData', type: 'json' },                   // TG元数据
+    { name: 'tags', type: 'array', of: { type: 'text' } },  // #标签（不含#号）
+    // 注意：不再需要title字段，让Payload自动处理
   ]
 }
 ```
 
 ## 🚀 使用方法
 
-### 1. 基本消息发布
+### 1. 发布个人内容
 
 在Telegram频道发送消息：
 ```
-🚀 新AI模型发布：GPT-5来了！
+💡 我对AI发展的思考
 
-OpenAI今天发布了备受期待的GPT-5模型，在多个基准测试中表现出色。
+最近看到GPT-5的发布，让我思考了几个问题：
 
-主要特性：
-- 更强的推理能力
-- 支持多模态输入
-- 更快的响应速度
+1. AI模型的能力边界在哪里？
+2. 我们如何确保AI发展的安全性？
+3. 个人隐私在AI时代如何保护？
 
-#AI #GPT5 #OpenAI #人工智能
+作为技术从业者，我认为我们需要更加主动地参与AI伦理的讨论。
 
-https://openai.com/gpt-5
+#AI思考 #技术伦理 #个人观点
+
+相关阅读：https://example.com/ai-ethics
 ```
 
 ### 2. 自动处理结果
 
 系统会自动：
-1. **解析消息**：提取标题、描述、链接、标签
-2. **AI增强**（可选）：优化标题、生成摘要、添加SEO标签  
-3. **发布到Payload**：创建新的blog文章
+1. **检测内容类型**：确认是手动内容（非RSS）
+2. **直接发布**：原文发布到Payload CMS，不进行AI修改
+3. **提取标签**：#标签自动成为文章关键词（移除#号）
 4. **回复确认**（可选）：在Telegram中回复发布状态
 
-### 3. 消息格式建议
+### 3. 同步删除功能
 
+如果您在Telegram中删除了消息：
+1. **自动检测**：系统检测到消息删除事件
+2. **查找对应文章**：通过telegram_message_id查找Payload中的文章
+3. **自动删除**：删除对应的Payload文章
+4. **确认回复**（可选）：回复删除成功状态
+
+### 4. 内容格式建议
+
+#### ✅ 推荐格式
 ```
-[标题行 - 将成为文章标题]
+[个人想法/观点的开头]
 
-[正文内容 - 将成为文章描述]
+[详细阐述，可以包含：]
+- 个人经历分享
+- 技术见解
+- 学习心得  
+- 项目总结
 
-[hashtag标签]
+[#标签1 #标签2 #标签3]
 
-[相关链接]
+[相关链接（可选）]
 ```
 
-## 🤖 AI增强功能
-
-当启用 `AI_ENHANCE_TG_CONTENT=true` 时，系统会：
-
-1. **标题优化**：生成更吸引人的标题
-2. **内容结构化**：重新组织内容结构
-3. **SEO优化**：生成SEO友好的摘要
-4. **智能标签**：自动生成相关标签
-5. **分类识别**：自动识别内容类别
+#### 🚫 会被过滤的格式
+- 包含"📰 摘要："、"🔗 来源："等RSS特征
+- 包含RSS源域名链接
+- Bot自动发送的消息
+- 系统推送时间段的技术长文
 
 ## 📊 监控和日志
 

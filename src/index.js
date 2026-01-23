@@ -881,13 +881,15 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       // AI 判定与双语内容生成 - 使用更宽松的筛选策略
       const aiData = await callAI(env, title, description, 'screening');
       
+      // 判断是否应该强制收录或继续
       if (!aiData || (!aiData.relevant && !shouldForceInclude)) {
-        if (shouldForceInclude) {
-          logs.push(`[AI] 🚨 强制收录: ${title.substring(0, 50)}...`);
-        } else {
-          logs.push(`[AI] ⏭️ 不相关`);
-          continue;
-        }
+        logs.push(`[AI] ⏭️ 不相关`);
+        continue;
+      }
+      
+      // 如果是强制收录，记录日志
+      if (shouldForceInclude && (!aiData || !aiData.relevant)) {
+        logs.push(`[AI] 🚨 强制收录: ${title.substring(0, 50)}...`);
       }
       
       // 如果是强制收录但AI判断为不相关，创建基本的双语内容

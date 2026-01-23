@@ -882,7 +882,7 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       const aiData = await callAI(env, title, description, 'screening');
       
       // 判断是否应该强制收录或继续
-      if (!aiData || (!aiData.relevant && !shouldForceInclude)) {
+      if (!shouldForceInclude && (!aiData || !aiData.relevant)) {
         logs.push(`[AI] ⏭️ 不相关`);
         continue;
       }

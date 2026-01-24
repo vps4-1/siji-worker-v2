@@ -1297,28 +1297,6 @@ function extractIntelligentKeywords(title, lang) {
     return keywords.slice(0, 5);
   }
 }
-    
-    // 英文关键词提取
-    if (titleLower.includes('ai') || titleLower.includes('intelligence')) keywords.push('Artificial Intelligence');
-    if (titleLower.includes('machine learning') || titleLower.includes('ml')) keywords.push('Machine Learning');
-    if (titleLower.includes('deep learning') || titleLower.includes('neural')) keywords.push('Deep Learning');
-    if (titleLower.includes('language model') || titleLower.includes('llm')) keywords.push('Language Models');
-    if (titleLower.includes('search') || titleLower.includes('retrieval')) keywords.push('Search Technology');
-    if (titleLower.includes('multimodal')) keywords.push('Multimodal AI');
-    if (titleLower.includes('attention') || titleLower.includes('transformer')) keywords.push('Attention Mechanism');
-    if (titleLower.includes('reinforcement')) keywords.push('Reinforcement Learning');
-    if (titleLower.includes('computer vision')) keywords.push('Computer Vision');
-    if (titleLower.includes('nlp')) keywords.push('Natural Language Processing');
-    
-    // 确保至少有3个关键词
-    if (keywords.length < 3) {
-      const defaultKeywords = ['Technology Innovation', 'AI Research', 'Technical Development'];
-      keywords.push(...defaultKeywords.slice(0, 3 - keywords.length));
-    }
-    
-    return keywords.slice(0, 5); // 最多5个
-  }
-}
 
 // 手动标题翻译映射（保留原功能作为备用）
 function translateTitleManually(title) {

@@ -31,7 +31,7 @@ TELEGRAM_CHANNEL = "@sijigpt"
 EMERGENCY_NO_DEDUP = "true"
 
 # 🤖 OpenRouter AI API配置
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 # 模型优先级：Claude > Grok > 千问
 OPENROUTER_MODELS = "groq/llama-3.1-8b-instant,anthropic/claude-3-5-haiku,x-ai/grok-2-1212,groq/llama-3.1-70b-versatile"

@@ -917,6 +917,8 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       // 通过筛选，开始内容生成
       if (shouldProcess) {
         logs.push(`[AI内容] 🎯 ${screeningStage} - 开始生成高质量内容...`);
+        
+        try {
         const contentResult = await callAI(env, title, description, 'content_generation');
         
         let finalAiData;
@@ -1021,13 +1023,19 @@ ${finalAiData.summary_en}
       });
       
       published++;
+      published++;
       publishedArticles.push({ title: finalTitle, url: link });
       logs.push(`[发布] ✅ 成功 (${published}/${dailyTarget})`);
       
+        } catch (error) {
+          logs.push(`[AI处理错误] ${error.message}`);
+          continue;
+        }
+      } // End of if (shouldProcess) block
     } catch (error) {
-      logs.push(`[错误] ${feedUrl}: ${error.message}`);
+      logs.push(`[RSS处理错误] ${feedUrl}: ${error.message}`);
     }
-  }
+  } // End of for loop
   
   logs.push(`[完成] 处理: ${count}, 发布: ${published}`);
   
@@ -1619,7 +1627,7 @@ async function callClaudeAI(env, title, description, purpose = 'screening') {
 输出title_zh: "如何微调FLUX模型" (不是 "How to Fine-Tune a FLUX Model")
 
 严格按照要求翻译，title_zh必须是中文！`
-    : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
+        : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
 
 标题: ${title}
 描述: ${description}
@@ -1920,7 +1928,7 @@ function createTranslationRefinementPrompt(title, description) {
 输出title_zh: "如何微调FLUX模型" (不是 "How to Fine-Tune a FLUX Model")
 
 严格按照要求翻译，title_zh必须是中文！`
-  : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
+        : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
 
 标题: ${title}
 描述: ${description}

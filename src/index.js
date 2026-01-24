@@ -901,18 +901,27 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
         // 强制收录：使用AI重新生成完整双语内容
         logs.push(`[AI] 🔄 强制收录，重新生成双语内容...`);
         const forceAiData = await callAI(env, title, description, 'forced_translation');
-        finalAiData = forceAiData || {
-          relevant: true,
-          original_language: 'en',
-          title_zh: title,
-          title_en: title,
-          summary_zh: description || title,
-          summary_zh_short: (description || title).substring(0, 200),
-          summary_en: description || title,
-          summary_en_short: (description || title).substring(0, 200),
-          keywords_zh: ['AI技术', '产品发布', '科技新闻'],
-          keywords_en: ['AI Technology', 'Product Release', 'Tech News']
-        };
+        
+        // 如果AI翻译失败，手动进行基本翻译
+        if (forceAiData && forceAiData.title_zh && forceAiData.title_zh !== title) {
+          finalAiData = forceAiData;
+        } else {
+          // AI翻译失败，进行手动映射翻译
+          logs.push(`[AI] ⚠️ AI翻译失败，使用手动映射...`);
+          const manualTitleZh = translateTitleManually(title);
+          finalAiData = {
+            relevant: true,
+            original_language: 'en',
+            title_zh: manualTitleZh,
+            title_en: title,
+            summary_zh: `这是一篇关于${manualTitleZh}的技术文章。${description || title}`,
+            summary_zh_short: `${manualTitleZh}相关技术介绍`,
+            summary_en: description || title,
+            summary_en_short: (description || title).substring(0, 200),
+            keywords_zh: ['AI技术', '产品发布', '科技新闻'],
+            keywords_en: ['AI Technology', 'Product Release', 'Tech News']
+          };
+        }
       } else {
         finalAiData = aiData;
       }
@@ -1030,6 +1039,58 @@ ${finalAiData.summary_en}
 }
 
 // ==================== AI 调用 ====================
+
+// 手动标题翻译映射
+function translateTitleManually(title) {
+  // 基本翻译映射表
+  const translations = {
+    'How to': '如何',
+    'Fine-Tune': '微调',
+    'FLUX Model': 'FLUX模型',
+    'PostgreSQL': 'PostgreSQL数据库',
+    'ChatGPT': 'ChatGPT',
+    'Personal Intelligence': '个人智能',
+    'AI Mode': 'AI模式',
+    'Search': '搜索',
+    'Gated Sparse Attention': '门控稀疏注意力',
+    'Computational Efficiency': '计算效率',
+    'Training Stability': '训练稳定性',
+    'Long-Context': '长上下文',
+    'Language Models': '语言模型',
+    'Deep Neural Nets': '深度神经网络',
+    'Multimodal': '多模态',
+    'Reinforcement Learning': '强化学习',
+    'Isaac': 'Isaac模型',
+    'Replicate': 'Replicate平台',
+    'RL without TD learning': '无TD学习的强化学习',
+    'The Download': '技术下载',
+    'chatbots for health': '健康聊天机器人',
+    'AI regulation': 'AI监管',
+    'Google Photos': '谷歌相册',
+    'meme': '表情包'
+  };
+  
+  let translated = title;
+  
+  // 应用翻译映射
+  for (const [en, zh] of Object.entries(translations)) {
+    const regex = new RegExp(en, 'gi');
+    translated = translated.replace(regex, zh);
+  }
+  
+  // 如果没有翻译成功，生成通用中文标题
+  if (translated === title || !/[\u4e00-\u9fa5]/.test(translated)) {
+    if (title.includes('AI') || title.includes('ChatGPT') || title.includes('GPT')) {
+      translated = `AI技术：${title}`;
+    } else if (title.includes('Google') || title.includes('Microsoft') || title.includes('OpenAI')) {
+      translated = `科技动态：${title}`;
+    } else {
+      translated = `技术文章：${title}`;
+    }
+  }
+  
+  return translated;
+}
 
 function getAIProvider(env) {
   const provider = (env.AI_PROVIDER || 'openrouter').toLowerCase();

@@ -972,6 +972,7 @@ ${finalAiData.summary_en}
       // 构建 Payload 数据对象
       const payloadData = {
         title: finalTitle,
+        title_zh: finalTitle,
         title_en: finalTitleEn,
         source: {
           url: link,

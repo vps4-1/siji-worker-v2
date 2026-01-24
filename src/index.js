@@ -788,54 +788,71 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
   logs.push(`[开始] 目标: ${dailyTarget} 篇, RSS 源: ${rssFeeds.length} 个`);
   logs.push(`[AI] 使用: ${env.AI_PROVIDER || 'openrouter'}`);
 
-  for (const feedUrl of rssFeeds) {
+  // 🚀 阶段1优化：并行抓取所有RSS源（安全无风险）
+  logs.push(`[RSS] 🔄 开始并行抓取 ${rssFeeds.length} 个RSS源...`);
+  
+  const rssResults = await Promise.allSettled(
+    rssFeeds.map(async (feedUrl) => {
+      try {
+        logs.push(`[RSS] 📡 抓取: ${feedUrl}`);
+        const response = await fetch(feedUrl, { 
+          signal: AbortSignal.timeout(RSS_CONFIG.SOURCE_TIMEOUT),
+          headers: { 'User-Agent': 'Siji-Worker/2.0' }
+        });
+        
+        if (!response.ok) {
+          logs.push(`[RSS] ❌ HTTP ${response.status}: ${feedUrl}`);
+          return { feedUrl, articles: [] };
+        }
+        
+        const xmlText = await response.text();
+        const items = xmlText.match(/<item[^>]*>[\s\S]*?<\/item>/gi) || [];
+        
+        const articles = items.map(item => {
+          const title = extractTag(item, 'title');
+          const link = extractTag(item, 'link');
+          const description = extractTag(item, 'description');
+          return { title, link, description, feedUrl };
+        }).filter(article => article.title && article.link);
+        
+        logs.push(`[RSS] ✅ ${feedUrl}: 找到 ${articles.length} 篇文章`);
+        return { feedUrl, articles };
+        
+      } catch (error) {
+        logs.push(`[RSS] ❌ 抓取失败 ${feedUrl}: ${error.message}`);
+        return { feedUrl, articles: [] };
+      }
+    })
+  );
+  
+  // 合并所有RSS源的文章
+  const allArticles = rssResults
+    .filter(result => result.status === 'fulfilled')
+    .flatMap(result => result.value.articles);
+    
+  logs.push(`[RSS] 📊 并行抓取完成，共获得 ${allArticles.length} 篇文章`);
+  
+  // 现在逐篇处理文章（保持安全的顺序处理）
+  for (const { title, link, description, feedUrl } of allArticles) {
     if (published >= dailyTarget) {
-      logs.push(`[完成] 已达目标 ${dailyTarget} 篇，停止抓取`);
+      logs.push(`[完成] 已达目标 ${dailyTarget} 篇，停止处理`);
       break;
     }
     
-    logs.push(`[RSS] 抓取: ${feedUrl}`);
+    logs.push(`[处理] ${title.substring(0, 50)}...`);
     
-    try {
-      const response = await fetch(feedUrl, { 
-        signal: AbortSignal.timeout(RSS_CONFIG.SOURCE_TIMEOUT),
-        headers: { 'User-Agent': 'Siji-Worker/2.0' }
-      });
-      
-      if (!response.ok) {
-        logs.push(`[RSS] ❌ HTTP ${response.status}`);
-        continue;
-      }
-      
-      const xmlText = await response.text();
-      
-      const itemMatch = xmlText.match(/<item[^>]*>([\s\S]*?)<\/item>/i);
-      if (!itemMatch) {
-        logs.push(`[RSS] ⚠️ 未找到文章`);
-        continue;
-      }
-      
-      const itemContent = itemMatch[1];
-      const title = extractTag(itemContent, 'title');
-      const link = extractTag(itemContent, 'link');
-      const description = extractTag(itemContent, 'description');
-      
-      if (!title || !link) {
-        logs.push(`[RSS] ⚠️ 文章信息不完整`);
-        continue;
-      }
-      
-      count++;
-      logs.push(`[RSS] 找到: ${title.substring(0, 50)}...`);
-      
-      // 🔍 标准去重检查 - 所有文章都需要检查
-      const article = { link, title, summary: description };
-      const isDuplicate = await checkDuplicates(env, article, logs);
-      if (isDuplicate) {
-        continue;
-      }
+    
+    count++;
+    
+    // 🔍 标准去重检查 - 所有文章都需要检查
+    const article = { link, title, summary: description };
+    const isDuplicate = await checkDuplicates(env, article, logs);
+    if (isDuplicate) {
+      logs.push(`[去重] ⏭️ 跳过重复: ${title.substring(0, 30)}...`);
+      continue;
+    }
 
-      // 🎯 AI 分层筛选系统 - 放宽标准，重点捕捉AI产品发布
+    // 🎯 AI 分层筛选系统 - 放宽标准，重点捕捉AI产品发布
       console.log(`[AI筛选] 开始分层处理: ${title.substring(0, 50)}...`);
       
       // 第一层：Grok/Groq 快速宽松筛选
@@ -985,18 +1002,14 @@ ${finalAiData.summary_en}
       });
       
       published++;
-      published++;
       publishedArticles.push({ title: finalTitle, url: link });
       logs.push(`[发布] ✅ 成功 (${published}/${dailyTarget})`);
       
-        } catch (error) {
-          logs.push(`[AI处理错误] ${error.message}`);
-          continue;
-        }
-      } // End of if (shouldProcess) block
     } catch (error) {
-      logs.push(`[RSS处理错误] ${feedUrl}: ${error.message}`);
+      logs.push(`[AI处理错误] ${error.message}`);
+      continue;
     }
+  } // End of if (shouldProcess) block
   } // End of for loop
   
   logs.push(`[完成] 处理: ${count}, 发布: ${published}`);
@@ -2141,13 +2154,53 @@ async function sendSummaryToTelegram(env, articles, logs) {
     return;
   }
 
-  const articleList = articles.map((a, i) => `${i + 1}. ${a.title}`).join('\n');
-  const message = `✅ 本次聚合完成
+  // 🚀 阶段1优化：增强汇总信息
+  const currentTime = new Date().toLocaleString('zh-CN', { 
+    timeZone: 'Asia/Shanghai', 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit', 
+    hour: '2-digit', 
+    minute: '2-digit'
+  });
+  
+  // 按来源分类文章（展示并行抓取效果）
+  const sourceStats = {};
+  articles.forEach(article => {
+    if (article.url) {
+      const domain = new URL(article.url).hostname;
+      sourceStats[domain] = (sourceStats[domain] || 0) + 1;
+    }
+  });
+  
+  const sourceInfo = Object.entries(sourceStats)
+    .map(([domain, count]) => `  • ${domain}: ${count}篇`)
+    .slice(0, 5) // 只显示前5个来源
+    .join('\n');
+  
+  const articleList = articles
+    .slice(0, 8) // 只显示前8篇，避免消息过长
+    .map((a, i) => `${i + 1}. [${a.title.substring(0, 40)}...](https://sijigpt.com)`)
+    .join('\n');
+    
+  const remainingCount = articles.length > 8 ? articles.length - 8 : 0;
 
-📊 发布了 ${articles.length} 篇文章:
+  const message = `🤖 **AI智能聚合完成** 
+⏰ ${currentTime}
+
+📊 **本次成果**
+✅ 发布文章：**${articles.length}篇**
+🔍 AI分层筛选：Grok初筛 + Claude深度分析  
+🚀 并行处理：显著提升效率
+
+📋 **文章列表**
 ${articleList}
+${remainingCount > 0 ? `\n📎 还有${remainingCount}篇文章...` : ''}
 
-🌐 查看网站: https://sijigpt.com`;
+📈 **来源分布**
+${sourceInfo}
+
+🌐 **完整内容** → https://sijigpt.com`;
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {

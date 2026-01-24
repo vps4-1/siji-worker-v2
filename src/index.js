@@ -989,219 +989,147 @@ export default {
 // ==================== 核心聚合逻辑 ====================
 
 async function aggregateArticles(env, cronExpression = '0 15 * * *') {
-  // 🚨 紧急修复：确保AI函数在正确的作用域中
-  if (typeof callOpenRouterAI === 'undefined') {
-    // 使用globalThis替代global (Worker环境兼容)
-    globalThis.callOpenRouterAI = async function(env, title, description, purpose = 'screening', specificModel = null, customPrompt = null) {
-      console.log(`[OpenRouter] 🎯 AI任务: ${purpose}`);
-      console.log(`[OpenRouter] API Key存在: ${!!env.OPENROUTER_API_KEY}`);
-      
-      // 备用AI策略配置
-      const FALLBACK_AI_CONFIG = {
-        companies: {
-          'OpenAI': 10, 'ChatGPT': 10, 'GPT-4': 10, 'GPT-5': 10,
-          'Google': 9, 'DeepMind': 9, 'Gemini': 9, 'Bard': 9,
-          'Anthropic': 9, 'Claude': 9, 'xAI': 8, 'Grok': 8,
-          'Meta': 8, 'LLaMA': 8, 'Llama': 8, 'Microsoft': 7,
-          'NVIDIA': 8, 'DeepSeek': 7, '阿里': 6, 'Qwen': 6
-        },
-        tech: {
-          'AGI': 10, '通用人工智能': 10, '大语言模型': 9, 'LLM': 9,
-          '多模态': 8, 'multimodal': 8, '机器学习': 7, 'AI': 9
-        },
-        release: {
-          '发布': 8, 'release': 8, 'launch': 8, 'announced': 8,
-          '更新': 7, 'update': 7, 'new version': 9
-        }
-      };
+  // 🎯 初始化纯OpenRouter AI系统
+  console.log('[系统] 🚀 初始化纯OpenRouter AI系统...');
+  
+  if (!env.OPENROUTER_API_KEY) {
+    throw new Error('❌ OpenRouter API Key 未配置，系统无法运行');
+  }
+  
+  // 纯OpenRouter AI类定义
+  class PureOpenRouterAI {
+    constructor(apiKey) {
+      this.apiKey = apiKey;
+      this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+      console.log('[OpenRouter] ✅ AI系统初始化成功');
+    }
 
-      // 备用AI处理函数
-      const processFallbackAI = (title, description, purpose) => {
-        const content = (title + ' ' + description).toLowerCase();
-        let score = 0;
-        
-        // 计算相关性评分
-        for (const [category, keywords] of Object.entries(FALLBACK_AI_CONFIG)) {
-          for (const [keyword, weight] of Object.entries(keywords)) {
-            if (content.includes(keyword.toLowerCase())) {
-              score += weight;
-            }
-          }
-        }
-        
-        const normalizedScore = Math.min(score / 50, 1.0);
-        
-        // 智能分类
-        let category = '其他AI';
-        if (content.includes('openai') || content.includes('gpt')) category = 'OpenAI产品';
-        else if (content.includes('google') || content.includes('gemini')) category = 'Google AI';
-        else if (content.includes('anthropic') || content.includes('claude')) category = 'Anthropic产品';
-        
-        if (purpose === 'screening' || purpose === 'primary_screening') {
-          return {
-            relevant: normalizedScore > 0.3,
-            confidence: normalizedScore,
-            category: category,
-            reason: `备用AI筛选：评分 ${normalizedScore.toFixed(2)}`
-          };
-        } 
-        else if (purpose === 'secondary_screening') {
-          return {
-            approved: normalizedScore > 0.5,
-            confidence: normalizedScore,
-            overall_score: normalizedScore,
-            reason: `备用深度筛选：评分 ${normalizedScore.toFixed(2)}`
-          };
-        }
-        else if (purpose === 'content_generation') {
-          // 生成高质量中文标题
-          const translations = {
-            'release': '发布', 'announces': '宣布', 'launches': '推出', 'released': '发布了',
-            'updates': '更新', 'introduces': '引入', 'unveils': '揭晓', 'reveals': '发布',
-            'new': '全新', 'latest': '最新', 'version': '版本', 'model': '模型',
-            'AI': 'AI', 'tool': '工具', 'platform': '平台', 'service': '服务',
-            'feature': '功能', 'upgrade': '升级', 'partnership': '合作', 'collaboration': '合作',
-            'partners': '合作', 'collaborate': '合作', 'GPT': 'GPT', 'ChatGPT': 'ChatGPT'
-          };
-          
-          let chineseTitle = title;
-          // 先进行关键词替换
-          for (const [en, zh] of Object.entries(translations)) {
-            const regex = new RegExp(`\\b${en}\\b`, 'gi');
-            chineseTitle = chineseTitle.replace(regex, zh);
-          }
-          
-          // 如果标题仍然主要是英文，进行智能翻译
-          if (chineseTitle === title || /^[a-zA-Z\s\-:,\.]+$/.test(chineseTitle.replace(/【.*?】/, ''))) {
-            // 根据内容类型生成中文标题
-            if (title.toLowerCase().includes('partnership') || title.toLowerCase().includes('collaborate')) {
-              chineseTitle = `${category.replace('产品', '')}宣布重大合作伙伴关系`;
-            } else if (title.toLowerCase().includes('gpt') && title.toLowerCase().includes('release')) {
-              chineseTitle = `OpenAI发布全新GPT模型，性能大幅提升`;
-            } else if (title.toLowerCase().includes('revenue') || title.toLowerCase().includes('growth')) {
-              chineseTitle = `AI技术助力企业营收增长300%，商业化应用成效显著`;
-            } else {
-              // 通用翻译逻辑
-              chineseTitle = `【${category}】${title.substring(0, 40)}...`;
-            }
-          }
-          
-          // 生成高质量摘要
-          const descriptionText = description || title;
-          const summaryBase = `本文报道了${category}领域的重要进展。`;
-          
-          let intelligentSummary = '';
-          if (descriptionText.toLowerCase().includes('gpt') || descriptionText.toLowerCase().includes('chatgpt')) {
-            intelligentSummary = `OpenAI在人工智能领域取得重大突破，新发布的模型在性能和应用场景上都有显著提升。该技术进步将为企业和个人用户带来更强大的AI助手功能，推动人工智能在各行业的深度应用。`;
-          } else if (descriptionText.toLowerCase().includes('partnership') || descriptionText.toLowerCase().includes('collaboration')) {
-            intelligentSummary = `重要的战略合作关系正在重塑AI产业格局。这一合作将结合各方技术优势，加速人工智能解决方案的开发和部署，为用户提供更优质的服务体验。`;
-          } else if (descriptionText.toLowerCase().includes('revenue') || descriptionText.toLowerCase().includes('growth')) {
-            intelligentSummary = `AI技术在商业应用中展现出强劲的增长潜力。通过智能化解决方案，企业能够显著提升运营效率和客户体验，实现业务收入的大幅增长。`;
-          } else {
-            intelligentSummary = `${summaryBase}${descriptionText.substring(0, 120)}。该发展对行业具有重要意义，将推动相关技术的进一步创新和应用。`;
-          }
-          
-          return {
-            title_zh: chineseTitle,
-            title_en: title,
-            summary_zh: intelligentSummary,
-            summary_zh_short: intelligentSummary.substring(0, 60) + '...',
-            summary_en: `Important development in ${category}. ${description ? description.substring(0, 150) : title}`,
-            summary_en_short: `Latest ${category} updates`,
-            keywords_zh: ['人工智能', 'AI', category, '技术创新'],
-            keywords_en: ['AI', 'artificial intelligence', category.replace(/产品|AI/, ''), 'innovation']
-          };
-        }
-        
-        return { relevant: true, confidence: 0.5 };
-      };
-      
-      // 如果没有API Key或者是紧急模式，直接使用备用策略
-      if (!env.OPENROUTER_API_KEY || env.EMERGENCY_NO_DEDUP === 'true' || env.EMERGENCY_NO_DEDUP === true) {
-        console.log('[OpenRouter] 🔄 使用备用AI策略 - 原因:', !env.OPENROUTER_API_KEY ? '无API Key' : '紧急模式');
-        return processFallbackAI(title, description, purpose);
-      }
-      
-      console.log('[OpenRouter] ✅ 使用真实AI - API Key有效，非紧急模式');
-      
-      // 简化的提示词创建
-      const prompt = customPrompt || `请分析以下内容并返回JSON格式结果：
-      标题: ${title}
-      描述: ${description}
-      
-      返回格式：{"relevant": true, "confidence": 0.8, "summary_zh": "中文摘要", "summary_en": "English summary"}`;
-      
-      // 使用指定模型或默认模型
-      const model = specificModel || 'google/gemini-2.5-pro';
+    async callAI(prompt, model = 'google/gemini-2.5-pro', maxTokens = 2000) {
+      console.log(`[OpenRouter] 🎯 调用模型: ${model}`);
       
       try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const response = await fetch(this.baseUrl, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+            'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://siji-worker-v2.chengqiangshang.workers.dev',
-            'X-Title': 'SijiGPT Worker'
+            'HTTP-Referer': 'https://sijigpt.com',
+            'X-Title': 'SijiGPT'
           },
           body: JSON.stringify({
-            model: model,
+            model,
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 2000,
+            max_tokens: maxTokens,
             temperature: 0.7
           })
         });
-        
+
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
-        
+
         const data = await response.json();
-        if (data.choices?.[0]?.message?.content) {
-          try {
-            return JSON.parse(data.choices[0].message.content.trim());
-          } catch {
-            return { relevant: true, confidence: 0.5, summary_zh: '处理成功', summary_en: 'Processing successful' };
-          }
+        if (!data.choices?.[0]?.message?.content) {
+          throw new Error('无效的API响应格式');
         }
-        
-        throw new Error('无效的API响应');
+
+        return data.choices[0].message.content.trim();
       } catch (error) {
-        console.error(`[OpenRouter] ${model} 错误:`, error.message);
-        console.log('[OpenRouter] 🔄 回退到备用AI策略');
-        return processFallbackAI(title, description, purpose);
+        console.error(`[OpenRouter] ${model} 调用失败:`, error.message);
+        throw error;
       }
-    };
-    
-    // 添加筛选函数
-    globalThis.performPrimaryScreening = async function(env, title, description, logs) {
+    }
+
+    // AI相关性筛选
+    async screenRelevance(title, description) {
+      const prompt = `判断内容是否与AI相关：
+标题：${title}
+描述：${description}
+
+返回JSON：{"relevant": true/false, "confidence": 0.0-1.0, "reason": "理由"}
+只有真正的AI技术内容才标记为相关。`;
+
       try {
-        const result = await globalThis.callOpenRouterAI(env, title, description, 'primary_screening', 'x-ai/grok-4.1-fast', `判断AI相关性：${title}`);
-        return result.relevant ? { relevant: true, confidence: result.confidence || 0.8 } : { relevant: false, confidence: 0.2 };
+        const result = await this.callAI(prompt, 'x-ai/grok-beta', 300);
+        return JSON.parse(result);
       } catch (error) {
-        logs.push(`[一级筛选] ❌ ${error.message}`);
-        return { relevant: true, confidence: 0.5 }; // 失败时宽松通过
+        console.error('[一级筛选] 失败，默认通过:', error.message);
+        return { relevant: true, confidence: 0.5, reason: '筛选失败默认通过' };
       }
-    };
-    
-    globalThis.performSecondaryScreening = async function(env, title, description, primaryResult, logs) {
+    }
+
+    // 质量评估
+    async evaluateQuality(title, description) {
+      const prompt = `评估AI内容质量：
+标题：${title}
+描述：${description}
+
+返回JSON：{
+  "approved": true/false,
+  "overall_score": 0.0-1.0,
+  "reason": "评估理由"
+}
+overall_score > 0.6 才批准发布`;
+
       try {
-        const result = await globalThis.callOpenRouterAI(env, title, description, 'secondary_screening', 'google/gemini-2.5-pro', `深度分析：${title}`);
-        return { approved: result.relevant || true, overall_score: result.confidence || 0.7 };
+        const result = await this.callAI(prompt, 'google/gemini-2.5-pro', 400);
+        return JSON.parse(result);
       } catch (error) {
-        logs.push(`[二级筛选] ❌ ${error.message}`);
-        return { approved: true, overall_score: 0.5 }; // 失败时宽松通过
+        console.error('[二级筛选] 失败，宽松通过:', error.message);
+        return { approved: true, overall_score: 0.6, reason: '评估失败宽松通过' };
       }
-    };
-    
-    globalThis.callAI = async function(env, title, description, purpose) {
+    }
+
+    // 内容生成
+    async generateContent(title, description, url) {
+      const prompt = `基于AI资讯创建高质量中文内容：
+
+原标题：${title}
+内容：${description}
+链接：${url}
+
+创建：
+1. 中文标题：准确、吸引人
+2. 中文摘要：150-200字，信息丰富
+3. 关键词：3-5个中文词汇
+4. 分类：OpenAI产品/谷歌AI/Anthropic产品/微软AI/AI研究/AI工具/其他AI
+
+返回JSON：{
+  "title_zh": "中文标题",
+  "summary_zh": "详细摘要", 
+  "keywords_zh": "词1, 词2, 词3",
+  "category": "分类",
+  "original_language": "en"
+}`;
+
       try {
-        return await globalThis.callOpenRouterAI(env, title, description, purpose);
+        const result = await this.callAI(prompt, 'google/gemini-2.5-pro', 1000);
+        return JSON.parse(result);
       } catch (error) {
-        console.error(`[AI] ${purpose} 失败:`, error.message);
-        return null;
+        console.error('[内容生成] 失败，使用基础模板:', error.message);
+        return this.createFallbackContent(title, description);
       }
-    };
+    }
+
+    createFallbackContent(title, description) {
+      let category = 'AI研究';
+      if (title.toLowerCase().includes('openai')) category = 'OpenAI产品';
+      else if (title.toLowerCase().includes('google')) category = '谷歌AI';
+      else if (title.toLowerCase().includes('anthropic')) category = 'Anthropic产品';
+
+      return {
+        title_zh: `【${category}】${title}`,
+        summary_zh: `${category}最新资讯：${description.substring(0, 150)}...`,
+        keywords_zh: '人工智能, AI技术, 科技创新',
+        category,
+        original_language: 'en'
+      };
+    }
   }
+
+  // 初始化AI系统
+  const aiSystem = new PureOpenRouterAI(env.OPENROUTER_API_KEY);
   
   const logs = [];
   let count = 0;
@@ -1301,74 +1229,51 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
     // const isDuplicate = await checkDuplicates(env, article, logs);
     // if (isDuplicate) { logs.push(`[去重] ⏭️ 跳过重复: ${title.substring(0, 30)}...`); continue; }
 
-    // 🎯 AI 分层筛选系统 - 放宽标准，重点捕捉AI产品发布
-      console.log(`[AI筛选] 开始分层处理: ${title.substring(0, 50)}...`);
+    // 🎯 纯OpenRouter AI处理流程
+    console.log(`[AI筛选] 开始纯OpenRouter处理: ${title.substring(0, 50)}...`);
+    
+    try {
+      // 一级筛选：快速相关性判断
+      const relevanceResult = await aiSystem.screenRelevance(title, description);
       
-      // 第一层：Grok/Groq 快速宽松筛选
-      const primaryResult = await performPrimaryScreening(env, title, description, logs);
-      
-      if (!primaryResult.relevant) {
-        logs.push(`[一级筛选] ⏭️ 完全不相关，跳过: ${title.substring(0, 30)}...`);
+      if (!relevanceResult.relevant || relevanceResult.confidence < 0.3) {
+        logs.push(`[一级筛选] ❌ 不相关或置信度低 (${relevanceResult.confidence})`);
         continue;
       }
       
-      let shouldProcess = false;
-      let screeningStage = '';
-      let secondaryResult = { overall_score: primaryResult.confidence || 0.5 }; // 默认值
+      logs.push(`[一级筛选] ✅ 相关性确认 (置信度: ${relevanceResult.confidence})`);
       
-      // 高置信度直接通过
-      if (primaryResult.confidence >= 0.8) {
-        shouldProcess = true;
-        screeningStage = '一级高分通过';
-        logs.push(`[一级筛选] 🎯 高置信度(${primaryResult.confidence})直接通过`);
-      }
-      // 中等置信度进入二级筛选  
-      else if (primaryResult.confidence >= 0.3) {
-        logs.push(`[二级筛选] 🔬 中等置信度(${primaryResult.confidence})，启动Gemini深度分析...`);
-        secondaryResult = await performSecondaryScreening(env, title, description, primaryResult, logs);
+      // 二级筛选：质量评估（仅对中高置信度内容）
+      let qualityResult = { approved: true, overall_score: 0.7 };
+      
+      if (relevanceResult.confidence < 0.8) {
+        qualityResult = await aiSystem.evaluateQuality(title, description);
         
-        if (secondaryResult && secondaryResult.approved) {
-          shouldProcess = true;
-          screeningStage = '二级深度通过';
-          logs.push(`[二级筛选] ✅ 深度分析通过，综合评分: ${secondaryResult.overall_score}`);
-        } else {
-          logs.push(`[二级筛选] ❌ 深度分析未通过`);
+        if (!qualityResult.approved || qualityResult.overall_score < 0.6) {
+          logs.push(`[二级筛选] ❌ 质量评估未通过 (评分: ${qualityResult.overall_score})`);
           continue;
         }
       }
-      // 低置信度拒绝
-      else {
-        logs.push(`[一级筛选] ❌ 置信度过低(${primaryResult.confidence})，拒绝`);
+      
+      logs.push(`[二级筛选] ✅ 质量评估通过 (评分: ${qualityResult.overall_score})`);
+      
+      // 内容生成：高质量中文内容
+      logs.push(`[AI内容] 🎯 开始生成高质量内容...`);
+      
+      const finalAiData = await aiSystem.generateContent(title, description, link);
+      
+      if (!finalAiData.title_zh || !finalAiData.summary_zh) {
+        logs.push(`[AI内容] ❌ 内容生成失败，跳过文章`);
         continue;
       }
       
-      // 通过筛选，开始内容生成
-      if (shouldProcess) {
-        logs.push(`[AI内容] 🎯 ${screeningStage} - 开始生成高质量内容...`);
-        
-        try {
-        const contentResult = await callAI(env, title, description, 'content_generation');
-        
-        let finalAiData;
-        
-        if (contentResult && contentResult.title_zh && contentResult.summary_zh) {
-          // 高质量AI内容生成成功
-          finalAiData = contentResult;
-          logs.push(`[AI内容] ✅ 高质量内容生成成功`);
-        } else {
-          // AI生成失败，跳过该文章
-          logs.push(`[AI内容] ❌ 内容生成失败，跳过文章`);
-          continue;
-        }
-        
-        // 新的数据结构：AI 已返回完整双语内容
-        const originalLang = finalAiData.original_language || "en";
-      logs.push(`[AI] ✅ 相关, 原文语言: ${originalLang}`);
-      logs.push(`[内容] 中文摘要: ${finalAiData.summary_zh.length} 字, 英文摘要: ${finalAiData.summary_en.length} 字`);
+      logs.push(`[AI内容] ✅ 高质量内容生成成功`);
+      logs.push(`[内容] 中文标题: ${finalAiData.title_zh}`);
+      logs.push(`[内容] 中文摘要: ${finalAiData.summary_zh.length} 字`);
       
-      // 确定最终标题（始终使用中文标题）
+      // 最终标题和内容
       const finalTitle = finalAiData.title_zh;
-      const finalTitleEn = finalAiData.title_en;
+      const originalLang = finalAiData.original_language || "en";
       
       // 构建双语内容（按需求 2 的格式）
     // ============================================
@@ -1378,13 +1283,12 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       // ============================================
       // 构建双语内容（简化来源格式，完整标题自动换行）
       // ============================================
+      // 📝 发布准备：构建完整数据结构
+      // ============================================
       
-      // 准备原文标题数据
-      const fullTitle = finalTitleEn || finalTitle; // 完整原文标题
-      
-      // 构建 HTML 格式的双语内容
+      // 构建双语HTML内容
       const bilingualContent = `
-<p><strong>来源：</strong><a href="${link}" target="_blank" rel="noopener noreferrer">${fullTitle}</a></p>
+<p><strong>来源：</strong><a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a></p>
 
 ---
 
@@ -1392,43 +1296,44 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
 
 ${finalAiData.summary_zh}
 
-<p><strong>关键词：</strong>${(finalAiData.keywords_zh || []).join("、")}</p>
+<p><strong>关键词：</strong>${finalAiData.keywords_zh || '人工智能, 科技创新'}</p>
 
 ---
 
 <h2><strong>English Summary</strong></h2>
 
-<p><strong>${finalTitleEn}</strong></p>
+<p><strong>${title}</strong></p>
 
-${finalAiData.summary_en}
+${description}
 
-<p><strong>Keywords:</strong> ${(finalAiData.keywords_en || []).join(", ")}</p>
+<p><strong>Keywords:</strong> AI, Technology, Innovation</p>
 `.trim();
+
       // 构建 Payload 数据对象
       const payloadData = {
         title: finalTitle,
         title_zh: finalTitle,
-        title_en: finalTitleEn,
+        title_en: title,
         source: {
           url: link,
           name: extractSourceName(link)
         },
-        summary_list_zh: finalAiData.summary_zh_short,
-        summary_list_en: finalAiData.summary_en_short,
+        summary_list_zh: finalAiData.summary_zh?.substring(0, 100) + '...',
+        summary_list_en: description.substring(0, 100) + '...',
         summary_zh: {
           content: finalAiData.summary_zh,
-          keywords: (finalAiData.keywords_zh || []).map(kw => ({ keyword: kw }))
+          keywords: finalAiData.keywords_zh?.split(', ')?.map(kw => ({ keyword: kw.trim() })) || []
         },
         summary_en: {
-          content: finalAiData.summary_en,
-          keywords: (finalAiData.keywords_en || []).map(kw => ({ keyword: kw }))
+          content: description,
+          keywords: []
         },
-        original_language: finalAiData.original_language || 'en',
+        original_language: originalLang,
         content: bilingualContent
       };
 
       // 是否强制发布（高评分文章或紧急模式）
-      const shouldForceInclude = (secondaryResult.overall_score > 0.7) || (env.EMERGENCY_NO_DEDUP === 'true');
+      const shouldForceInclude = (qualityResult.overall_score > 0.7) || (env.EMERGENCY_NO_DEDUP === 'true');
       
       const payloadSuccess = await publishToPayload(env, payloadData, logs, shouldForceInclude);
       
@@ -1463,9 +1368,9 @@ ${finalAiData.summary_en}
         title: finalTitle,
         description,
         summary_zh: finalAiData.summary_zh,
-        summary_en: finalAiData.summary_en,
+        summary_en: description,
         keywords_zh: finalAiData.keywords_zh,
-        keywords_en: finalAiData.keywords_en,
+        keywords_en: '',
         feedUrl
       };
       await saveProcessedArticlesToD1(env, [articleData], logs);
@@ -1473,10 +1378,9 @@ ${finalAiData.summary_en}
       logs.push(`[发布] ✅ 成功 (${published}/${dailyTarget})`);
       
     } catch (error) {
-      logs.push(`[AI处理错误] ${error.message}`);
-      continue;
+      logs.push(`[AI处理] ❌ 处理失败: ${error.message}`);
+      console.error('[AI处理] 错误:', error);
     }
-  } // End of if (shouldProcess) block
   } // End of for loop
   
   logs.push(`[完成] 处理: ${count}, 发布: ${published}`);
@@ -1485,7 +1389,6 @@ ${finalAiData.summary_en}
     await sendSummaryToTelegram(env, publishedArticles, logs);
   }
   
-
   return {
     count,
     published,

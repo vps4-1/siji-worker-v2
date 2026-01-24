@@ -521,6 +521,45 @@ function truncateTitle(title, maxLength = 60) {
   return result;
 }
 
+// 🚀 批量去重：减少KV请求频率，避免API限制
+async function batchCheckDuplicates(env, articles, logs) {
+  const uniqueArticles = [];
+  const seenUrls = new Set();
+  const seenTitles = new Set();
+  
+  // 第一步：内存去重（同批次重复）
+  for (const article of articles) {
+    const normalizedUrl = normalizeUrl(article.link);
+    const titleHash = generateTitleHash(article.title);
+    
+    if (seenUrls.has(normalizedUrl) || seenTitles.has(titleHash)) {
+      logs.push(`[批量去重] ⏭️ 批内重复: ${article.title.substring(0, 30)}...`);
+      continue;
+    }
+    
+    seenUrls.add(normalizedUrl);
+    seenTitles.add(titleHash);
+    uniqueArticles.push(article);
+  }
+  
+  logs.push(`[批量去重] 📊 批内去重: ${articles.length} -> ${uniqueArticles.length} 篇`);
+  
+  // 第二步：KV批量检查（限制检查数量）
+  const maxKvChecks = 50; // 限制KV检查数量
+  const articlesToCheck = uniqueArticles.slice(0, maxKvChecks);
+  
+  const finalUnique = [];
+  for (const article of articlesToCheck) {
+    const isDuplicate = await checkDuplicates(env, article, []);
+    if (!isDuplicate) {
+      finalUnique.push(article);
+    }
+  }
+  
+  logs.push(`[批量去重] 📊 KV去重: ${articlesToCheck.length} -> ${finalUnique.length} 篇`);
+  return finalUnique;
+}
+
 async function checkDuplicates(env, article, logs) {
   const normalizedUrl = normalizeUrl(article.link);
   const titleHash = generateTitleHash(article.title);
@@ -795,14 +834,18 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
   
   const dailyTarget = parseInt(env.DAILY_TARGET || '20', 10);
   
-  logs.push(`[开始] 目标: ${dailyTarget} 篇, RSS 源: ${rssFeeds.length} 个`);
+  // 🚨 紧急修复：限制RSS源数量避免API过载
+  const maxRssFeeds = 30; // 限制为30个源，避免KV请求过多
+  const limitedRssFeeds = rssFeeds.slice(0, maxRssFeeds);
+  
+  logs.push(`[开始] 目标: ${dailyTarget} 篇, RSS 源: ${limitedRssFeeds.length}/${rssFeeds.length} 个 (限制避免API过载)`);
   logs.push(`[AI] 使用: ${env.AI_PROVIDER || 'openrouter'}`);
 
-  // 🚀 阶段1优化：并行抓取所有RSS源（安全无风险）
-  logs.push(`[RSS] 🔄 开始并行抓取 ${rssFeeds.length} 个RSS源...`);
+  // 🚀 阶段1优化：并行抓取有限RSS源（避免API过载）
+  logs.push(`[RSS] 🔄 开始并行抓取 ${limitedRssFeeds.length} 个RSS源...`);
   
   const rssResults = await Promise.allSettled(
-    rssFeeds.map(async (feedUrl) => {
+    limitedRssFeeds.map(async (feedUrl) => {
       try {
         logs.push(`[RSS] 📡 抓取: ${feedUrl}`);
         const response = await fetch(feedUrl, { 
@@ -842,8 +885,13 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
     
   logs.push(`[RSS] 📊 并行抓取完成，共获得 ${allArticles.length} 篇文章`);
   
-  // 现在逐篇处理文章（保持安全的顺序处理）
-  for (const { title, link, description, feedUrl } of allArticles) {
+  // 🚀 优化：批量去重检查，减少KV请求
+  logs.push(`[去重] 🔍 开始批量去重检查...`);
+  const uniqueArticles = await batchCheckDuplicates(env, allArticles, logs);
+  logs.push(`[去重] ✅ 去重完成，剩余 ${uniqueArticles.length} 篇独特文章`);
+  
+  // 现在逐篇处理已去重的文章（保持安全的顺序处理）
+  for (const { title, link, description, feedUrl } of uniqueArticles) {
     if (published >= dailyTarget) {
       logs.push(`[完成] 已达目标 ${dailyTarget} 篇，停止处理`);
       break;
@@ -851,16 +899,11 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
     
     logs.push(`[处理] ${title.substring(0, 50)}...`);
     
-    
     count++;
     
-    // 🔍 标准去重检查 - 所有文章都需要检查
-    const article = { link, title, summary: description };
-    const isDuplicate = await checkDuplicates(env, article, logs);
-    if (isDuplicate) {
-      logs.push(`[去重] ⏭️ 跳过重复: ${title.substring(0, 30)}...`);
-      continue;
-    }
+    // 🚀 跳过去重检查 - 已在批量去重中处理
+    // const isDuplicate = await checkDuplicates(env, article, logs);
+    // if (isDuplicate) { logs.push(`[去重] ⏭️ 跳过重复: ${title.substring(0, 30)}...`); continue; }
 
     // 🎯 AI 分层筛选系统 - 放宽标准，重点捕捉AI产品发布
       console.log(`[AI筛选] 开始分层处理: ${title.substring(0, 50)}...`);

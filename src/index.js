@@ -1491,6 +1491,11 @@ async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
   const isForcedScreening = purpose === 'forced_screening';
   const isForceTranslation = purpose === 'forced_translation';
   
+  // 添加详细调试日志
+  console.log(`[OpenRouter Debug] 开始调用 - purpose: ${purpose}`);
+  console.log(`[OpenRouter Debug] API Key存在: ${!!env.OPENROUTER_API_KEY}`);
+  console.log(`[OpenRouter Debug] 模型配置: ${env.OPENROUTER_MODELS}`);
+  
   const prompt = isForcedScreening ?
   `🚨 强制筛选模式：必须将此内容判定为AI相关并生成高质量双语摘要！
 
@@ -1627,6 +1632,8 @@ OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hu
     const model = modelList[i];
     try {
       console.log(`[AI] 尝试模型 ${i + 1}/${modelList.length}: ${model} (${purpose})`);
+      console.log(`[OpenRouter Debug] 请求URL: ${OPENROUTER_CONFIG.endpoint}`);
+      console.log(`[OpenRouter Debug] 请求体预览: ${JSON.stringify({model, messages: [{role: 'user', content: prompt.substring(0, 100) + '...'}]}).substring(0, 200)}...`);
       
       const response = await fetch(OPENROUTER_CONFIG.endpoint, {
         method: 'POST',
@@ -1655,15 +1662,22 @@ OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hu
       }
 
       const data = await response.json();
+      console.log(`[OpenRouter Debug] 响应状态: ${response.status}`);
+      console.log(`[OpenRouter Debug] 响应数据结构: ${JSON.stringify(Object.keys(data))}`);
+      
       const content = data.choices?.[0]?.message?.content;
+      console.log(`[OpenRouter Debug] 内容存在: ${!!content}, 长度: ${content?.length || 0}`);
       
       if (!content) {
-        console.error(`[AI] 模型 ${model} 返回空内容`);
+        console.error(`[AI] 模型 ${model} 返回空内容，完整响应:`, JSON.stringify(data).substring(0, 500));
         if (i < models.length - 1) continue;
         throw new Error('AI返回空内容');
       }
 
+      console.log(`[OpenRouter Debug] 原始内容预览: ${content.substring(0, 100)}...`);
       const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      console.log(`[OpenRouter Debug] 清理后内容预览: ${cleanedContent.substring(0, 100)}...`);
+      
       const result = JSON.parse(cleanedContent);
       
       console.log(`[AI] ✅ 模型 ${model} 成功`);

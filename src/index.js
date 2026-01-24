@@ -2599,8 +2599,8 @@ async function performPrimaryScreening(env, title, description, logs) {
 
 🚨 核心原则：AI产品发布必须推送！宁多勿漏！`;
 
-  // 首选Grok，备选Groq
-  const models = ['x-ai/grok-2-1212', 'groq/llama-3.1-70b-versatile'];
+  // 首选Grok 4.1 Fast，备选Groq
+  const models = ['x-ai/grok-4.1-fast', 'groq/llama-3.1-70b-versatile'];
   
   for (const model of models) {
     try {

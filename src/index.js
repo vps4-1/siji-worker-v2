@@ -111,20 +111,24 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 内容判断和快速筛选 - 高质量模型优先
+    // 🔍 文章筛选和相关性判断 - 使用快速模型
     screening: [
-      'anthropic/claude-3-5-sonnet',         // Claude 3.5 Sonnet - 最高质量
-      'anthropic/claude-3-5-haiku',          // Claude 3.5 Haiku - 高质量备用
-      'openai/gpt-4o',                       // GPT-4O - 高质量备用  
-      'x-ai/grok-2-1212'                     // Grok 2 - 快速备用
+      'x-ai/grok-2-1212',                        // Grok 2 - 快速筛选主力
+      'groq/llama-3.1-70b-versatile',           // Groq 70B - 快速筛选备用
+      'groq/llama-3.1-8b-instant'               // Groq 8B - 超快速备用
     ],
     
-    // 详细摘要生成 - 最高质量模型
-    summarization: [
-      'anthropic/claude-3-5-sonnet',         // Claude 3.5 Sonnet - 最高摘要质量
-      'openai/gpt-4o',                       // GPT-4O - 高质量备用
-      'anthropic/claude-3-5-haiku',          // Claude 3.5 Haiku - 第二备用
-      'x-ai/grok-2-1212'                     // Grok 2 - 快速备用
+    // 📝 文章内容生成和翻译 - 使用高质量模型  
+    content_generation: [
+      'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - 主力内容生成
+      'google/gemini-2.0-flash-exp',            // Gemini 2.5 Pro - 高质量备用
+      'anthropic/claude-3-5-haiku'              // Claude 3.5 Haiku - 次级备用
+    ],
+    
+    // 🎯 双语摘要和标题优化 - 最高质量模型
+    translation_refinement: [
+      'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - 翻译精修
+      'google/gemini-2.0-flash-exp'             // Gemini 2.5 Pro - 多语言优化
     ],
     
     // 翻译和术语标注 - Grok优先策略
@@ -858,76 +862,38 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       count++;
       logs.push(`[RSS] 找到: ${title.substring(0, 50)}...`);
       
-      // 🚨 AI产品发布优先级检查 - 强制通过某些关键内容
-      const forceIncludeKeywords = [
-        'PostgreSQL', 'ChatGPT', 'Google', 'Microsoft', 'NVIDIA', 'OpenAI', 
-        'Isaac', 'Replicate', 'Attention', 'Sparse', 'AI Mode', 'DRIVE AV',
-        'Personal Intelligence', 'Gated Sparse'
-      ];
-      
-      const shouldForceInclude = forceIncludeKeywords.some(keyword => 
-        title.toLowerCase().includes(keyword.toLowerCase()) || 
-        description?.toLowerCase().includes(keyword.toLowerCase())
-      );
-      
-      // 三层去重检查 - 但强制收录的文章绕过去重
-      if (!shouldForceInclude) {
-        const article = { link, title, summary: description };
-        const isDuplicate = await checkDuplicates(env, article, logs);
-        if (isDuplicate) {
-          continue;
-        }
-      } else {
-        logs.push(`[去重] 🚨 强制收录跳过去重检查: ${title.substring(0, 50)}...`);
+      // 🔍 标准去重检查 - 所有文章都需要检查
+      const article = { link, title, summary: description };
+      const isDuplicate = await checkDuplicates(env, article, logs);
+      if (isDuplicate) {
+        continue;
       }
 
-      // AI 判定与双语内容生成 - 使用更宽松的筛选策略
-      const aiData = await callAI(env, title, description, 'screening');
+      // 🎯 AI 内容筛选和判定 - 两阶段处理
+      console.log(`[AI筛选] 开始处理: ${title.substring(0, 50)}...`);
       
-      // 声明finalAiData变量
+      // 第一阶段：快速筛选（使用Grok/Groq）
+      const screeningResult = await callAI(env, title, description, 'screening');
+      
+      if (!screeningResult || !screeningResult.relevant) {
+        logs.push(`[AI筛选] ⏭️ 不相关，跳过: ${title.substring(0, 30)}...`);
+        continue;
+      }
+      
+      // 第二阶段：内容生成（使用Claude/Gemini）
+      logs.push(`[AI内容] 🎯 开始生成高质量内容...`);
+      const contentResult = await callAI(env, title, description, 'content_generation');
+      
       let finalAiData;
       
-      // 优化后的强制收录逻辑：确保AI产品发布优先
-      if (!aiData || !aiData.relevant) {
-        if (shouldForceInclude) {
-          // 强制收录：优先尝试AI，失败则创建高质量基础内容
-          logs.push(`[AI] 🚨 强制收录，尝试AI处理: ${title.substring(0, 50)}...`);
-          const forceAiData = await callAI(env, title, description, 'screening');
-          
-          if (forceAiData && forceAiData.title_zh && forceAiData.summary_zh) {
-            // AI成功，使用AI生成的高质量内容
-            forceAiData.relevant = true;
-            finalAiData = forceAiData;
-            logs.push(`[AI] ✅ AI处理成功，已生成专业内容`);
-          } else {
-            // AI失败，创建结构化的基础内容确保发布
-            logs.push(`[AI] ⚠️ AI失败，生成基础内容确保发布`);
-            
-            // 直接创建基础内容，避免函数调用问题
-            const intelligentTitle = generateIntelligentTitle(title);
-            finalAiData = {
-              relevant: true,
-              original_language: 'en',
-              title_zh: intelligentTitle,
-              title_en: title,
-              summary_zh: `${intelligentTitle}是${extractTechnicalField(title)}领域的重要进展。${description || '该技术展示了最新的研究成果和应用前景。'}这一创新为相关技术发展提供了新的思路，预期将在AI技术应用中产生积极影响。`,
-              summary_zh_short: `${intelligentTitle}：${extractTechnicalField(title)}领域的技术突破，展现了重要的应用价值和发展前景。`,
-              summary_en: `${title} represents a significant advancement in the field of technology. ${description || 'This development showcases the latest research achievements and application prospects.'} The innovation provides new insights for related technological development and is expected to have a positive impact on AI technology applications.`,
-              summary_en_short: `${title}: A technological breakthrough with important application value and development prospects.`,
-              keywords_zh: extractIntelligentKeywords(title, 'zh'),
-              keywords_en: extractIntelligentKeywords(title, 'en')
-            };
-            
-            logs.push(`[AI] 📝 基础内容已生成，确保AI产品发布不遗漏`);
-          }
-        } else {
-          logs.push(`[AI] ⏭️ 不相关`);
-          continue;
-        }
+      if (contentResult && contentResult.title_zh && contentResult.summary_zh) {
+        // 高质量AI内容生成成功
+        finalAiData = contentResult;
+        logs.push(`[AI内容] ✅ 高质量内容生成成功`);
       } else {
-        // 正常AI处理流程
-        finalAiData = aiData;
-      }
+        // AI生成失败，跳过该文章
+        logs.push(`[AI内容] ❌ 内容生成失败，跳过文章`);
+        continue;
       
       // 新的数据结构：AI 已返回完整双语内容
       const originalLang = finalAiData.original_language || "en";
@@ -1709,53 +1675,182 @@ OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hu
   return JSON.parse(jsonMatch[0]);
 }
 
-async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
-  const isForcedScreening = purpose === 'forced_screening';
-  const isForceTranslation = purpose === 'forced_translation';
+async function callOpenRouterAI(env, title, description, purpose = 'screening') {
+  console.log(`[OpenRouter] 🎯 AI任务: ${purpose}`);
+  console.log(`[OpenRouter] API Key存在: ${!!env.OPENROUTER_API_KEY}`);
   
-  // 添加详细调试日志
-  console.log(`[OpenRouter Debug] 开始调用 - purpose: ${purpose}`);
-  console.log(`[OpenRouter Debug] API Key存在: ${!!env.OPENROUTER_API_KEY}`);
-  console.log(`[OpenRouter Debug] 模型配置: ${env.OPENROUTER_MODELS}`);
+  // 根据任务类型选择AI提示词
+  const prompt = createPromptForPurpose(purpose, title, description);
   
-  const prompt = isForcedScreening ?
-  `🚨 强制筛选模式：必须将此内容判定为AI相关并生成高质量双语摘要！
+  // 根据任务类型选择模型组
+  let modelGroup;
+  switch (purpose) {
+    case 'screening':
+      modelGroup = 'screening';  // 使用Grok/Groq进行快速筛选
+      break;
+    case 'content_generation':
+      modelGroup = 'content_generation';  // 使用Claude/Gemini进行内容生成
+      break;
+    case 'translation_refinement':
+      modelGroup = 'translation_refinement';  // 使用最高质量模型进行翻译精修
+      break;
+    default:
+      modelGroup = 'screening';
+  }
+
+  const modelList = OPENROUTER_CONFIG.models[modelGroup] || OPENROUTER_CONFIG.models.screening;
+  console.log(`[OpenRouter] 使用${modelGroup}模型组，共${modelList.length}个模型`);
+  
+  for (let i = 0; i < modelList.length; i++) {
+    const model = modelList[i];
+    console.log(`[OpenRouter] 🤖 尝试模型: ${model} (${i + 1}/${modelList.length})`);
+    
+    try {
+      const response = await fetch(OPENROUTER_CONFIG.endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://siji-worker-v2.chengqiangshang.workers.dev',
+          'X-Title': 'AI资讯汇总系统'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 4000,
+          temperature: 0.3
+        })
+      });
+
+      console.log(`[OpenRouter] 📡 响应状态: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[OpenRouter] ❌ 模型 ${model} 失败: ${response.status} - ${errorText}`);
+        
+        // 如果还有其他模型可尝试，继续下一个
+        if (i < modelList.length - 1) {
+          console.log(`[OpenRouter] 🔄 切换到下一个模型...`);
+          continue;
+        } else {
+          throw new Error(`所有模型都失败了。最后错误: ${errorText}`);
+        }
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+
+      if (!content) {
+        console.log(`[OpenRouter] ⚠️ 模型 ${model} 返回空内容`);
+        if (i < modelList.length - 1) {
+          continue;
+        } else {
+          throw new Error('AI返回空内容');
+        }
+      }
+
+      console.log(`[OpenRouter] ✅ 模型 ${model} 成功返回内容`);
+      
+      // 清理并解析JSON
+      const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      
+      try {
+        const result = JSON.parse(cleanedContent);
+        console.log(`[OpenRouter] 🎉 JSON解析成功 - 任务: ${purpose}`);
+        return result;
+        
+      } catch (parseError) {
+        console.error(`[OpenRouter] ❌ JSON解析失败: ${parseError.message}`);
+        console.log(`[OpenRouter] 原始内容: ${cleanedContent.substring(0, 200)}...`);
+        
+        if (i < modelList.length - 1) {
+          continue;
+        } else {
+          throw new Error(`JSON解析失败: ${parseError.message}`);
+        }
+      }
+      
+    } catch (error) {
+      console.error(`[OpenRouter] ❌ 模型 ${model} 异常: ${error.message}`);
+      
+      if (i < modelList.length - 1) {
+        console.log(`[OpenRouter] 🔄 尝试下一个模型...`);
+        continue;
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+
+// 🔍 筛选阶段提示词（使用Grok/Groq进行快速判断）
+function createScreeningPrompt(title, description) {
+  return `作为AI内容筛选专家，判断以下内容是否与人工智能、机器学习、深度学习相关。
+
+【筛选标准】
+✅ 相关内容：AI/ML算法、模型、工具、产品、研究、应用、公司动态
+✅ 包含关键词：OpenAI、Google AI、机器学习、神经网络、大语言模型、ChatGPT等
+❌ 不相关内容：纯业务新闻、娱乐八卦、传统软件、非技术内容
 
 【输入】
 标题: ${title}
-描述: ${description}
+描述: ${description || '无描述'}
 
-【强制要求】
-1. 必须判定为 relevant: true
-2. 生成专业的中文标题（完整翻译，不保留英文）
-3. 生成高质量的中文和英文摘要
-4. 不允许使用"这是一篇关于..."等模板化开头
-5. 摘要要有实质内容，体现技术价值
+【输出】只需返回简单JSON：
+{
+  "relevant": true/false,
+  "reason": "判断理由"
+}`;
+}
 
-【输出格式】严格按照此JSON格式返回：
+// 📝 内容生成阶段提示词（使用Claude/Gemini生成高质量双语内容）
+function createContentGenerationPrompt(title, description) {
+  return `作为AI技术内容专家，为这篇AI相关文章生成专业的双语内容。
+
+【内容要求】
+1. 生成自然流畅的中文标题（完全翻译，不保留英文）
+2. 创建专业的双语摘要（中文500字，英文400词）
+3. 提供准确的技术关键词
+4. 摘要要体现技术价值和创新点
+
+【输入】
+标题: ${title}
+描述: ${description || ''}
+
+【输出格式】
 {
   "relevant": true,
   "original_language": "en",
-  "title_zh": "专业的完整中文标题",
+  "title_zh": "完整的中文标题",
   "title_en": "${title}",
-  "summary_zh": "专业的中文技术摘要，约500字，体现技术创新点和应用价值",
-  "summary_zh_short": "简洁的中文摘要，约200字，突出核心要点",
-  "summary_en": "Professional English summary (around 500 words)",
-  "summary_en_short": "Concise English summary (around 200 words)",
-  "keywords_zh": ["专业中文关键词1","关键词2","关键词3"],
-  "keywords_en": ["professional_keyword1","keyword2","keyword3"]
-}` :
-  isForceTranslation ?
-  `强制翻译模式：必须将以下英文内容翻译为中文，生成完整的双语摘要。
+  "summary_zh": "专业中文摘要，详细介绍技术特点、应用场景和价值",
+  "summary_zh_short": "200字中文摘要",
+  "summary_en": "Professional English summary covering technical aspects and applications",
+  "summary_en_short": "200-word English summary",
+  "keywords_zh": ["中文关键词1", "关键词2", "关键词3"],
+  "keywords_en": ["english_keyword1", "keyword2", "keyword3"]
+}`;
+}
+
+// 🎯 翻译精修阶段提示词（使用最高质量模型优化翻译）
+function createTranslationRefinementPrompt(title, description) {
+  return `作为专业翻译专家，优化这篇AI技术文章的中文翻译质量。
+
+【优化目标】
+1. 确保中文标题自然流畅，符合中文表达习惯
+2. 提升摘要的专业性和可读性
+3. 优化技术术语的中文表达
 
 【输入】
 标题: ${title}
-描述: ${description}
+描述: ${description || ''}
 
-【翻译要求】
-1. 必须将英文标题完整翻译为中文
-2. 必须将描述翻译为中文摘要
-3. 不允许保留英文原标题
+【输出格式】
+{
+  "title_zh_refined": "优化后的中文标题",
+  "summary_zh_refined": "优化后的中文摘要",
+  "keywords_zh_refined": ["优化后的中文关键词"]
+}
 4. 中文摘要要自然流畅，不要有多余的换行符
 5. 生成专业的技术文章摘要
 

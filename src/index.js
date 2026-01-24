@@ -1075,24 +1075,38 @@ async function callAI(env, title, description, purpose = 'summarization') {
 async function callClaudeAI(env, title, description, purpose = 'screening') {
     const isForceTranslation = purpose === 'forced_translation';
     const prompt = isForceTranslation ? 
-    `强制翻译模式：为以下内容生成完整的双语摘要（无论是否AI相关）。
+    `强制翻译模式：必须将以下英文内容翻译为中文，生成完整的双语摘要。
 
+【输入】
 标题: ${title}
 描述: ${description}
 
-必须返回以下JSON格式：
+【翻译要求】
+1. 必须将英文标题完整翻译为中文
+2. 必须将描述翻译为中文摘要  
+3. 不允许保留英文原标题
+4. 中文摘要要自然流畅，不要有多余的换行符
+5. 生成专业的技术文章摘要
+
+【输出格式】严格按照此JSON格式返回：
 {
   "relevant": true,
-  "original_language": "en/zh",
-  "title_zh": "中文标题",
-  "title_en": "English Title", 
-  "summary_zh": "详细中文摘要（约500字）",
-  "summary_zh_short": "简短中文摘要（约200字）",
+  "original_language": "en",
+  "title_zh": "完整的中文翻译标题（必须是中文）",
+  "title_en": "${title}",
+  "summary_zh": "详细的中文技术摘要，约500字，必须是中文，描述技术要点和意义",
+  "summary_zh_short": "简短的中文摘要，约200字，必须是中文",
   "summary_en": "Detailed English summary (around 500 words)",
-  "summary_en_short": "Short English summary (around 200 words)",
-  "keywords_zh": ["关键词1","关键词2","关键词3"],
+  "summary_en_short": "Short English summary (around 200 words)", 
+  "keywords_zh": ["中文关键词1","中文关键词2","中文关键词3"],
   "keywords_en": ["keyword1","keyword2","keyword3"]
-}`
+}
+
+【示例】
+输入标题: "How to Fine-Tune a FLUX Model"
+输出title_zh: "如何微调FLUX模型" (不是 "How to Fine-Tune a FLUX Model")
+
+严格按照要求翻译，title_zh必须是中文！`
     : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
 
 标题: ${title}
@@ -1188,24 +1202,38 @@ OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hu
 async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
   const isForceTranslation = purpose === 'forced_translation';
   const prompt = isForceTranslation ?
-  `强制翻译模式：为以下内容生成完整的双语摘要（无论是否AI相关）。
+  `强制翻译模式：必须将以下英文内容翻译为中文，生成完整的双语摘要。
 
+【输入】
 标题: ${title}
 描述: ${description}
 
-必须返回以下JSON格式：
+【翻译要求】
+1. 必须将英文标题完整翻译为中文
+2. 必须将描述翻译为中文摘要
+3. 不允许保留英文原标题
+4. 中文摘要要自然流畅，不要有多余的换行符
+5. 生成专业的技术文章摘要
+
+【输出格式】严格按照此JSON格式返回：
 {
   "relevant": true,
-  "original_language": "en/zh",
-  "title_zh": "中文标题",
-  "title_en": "English Title", 
-  "summary_zh": "详细中文摘要（约500字）",
-  "summary_zh_short": "简短中文摘要（约200字）",
+  "original_language": "en",
+  "title_zh": "完整的中文翻译标题（必须是中文）",
+  "title_en": "${title}",
+  "summary_zh": "详细的中文技术摘要，约500字，必须是中文，描述技术要点和意义",
+  "summary_zh_short": "简短的中文摘要，约200字，必须是中文", 
   "summary_en": "Detailed English summary (around 500 words)",
   "summary_en_short": "Short English summary (around 200 words)",
-  "keywords_zh": ["关键词1","关键词2","关键词3"],
+  "keywords_zh": ["中文关键词1","中文关键词2","中文关键词3"],
   "keywords_en": ["keyword1","keyword2","keyword3"]
-}`
+}
+
+【示例】
+输入标题: "How to Fine-Tune a FLUX Model"
+输出title_zh: "如何微调FLUX模型" (不是 "How to Fine-Tune a FLUX Model")
+
+严格按照要求翻译，title_zh必须是中文！`
   : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
 
 标题: ${title}

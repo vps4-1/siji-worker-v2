@@ -869,34 +869,65 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
         continue;
       }
 
-      // 🎯 AI 内容筛选和判定 - 两阶段处理
-      console.log(`[AI筛选] 开始处理: ${title.substring(0, 50)}...`);
+      // 🎯 AI 分层筛选系统 - 放宽标准，重点捕捉AI产品发布
+      console.log(`[AI筛选] 开始分层处理: ${title.substring(0, 50)}...`);
       
-      // 第一阶段：快速筛选（使用Grok/Groq）
-      const screeningResult = await callAI(env, title, description, 'screening');
+      // 第一层：Grok/Groq 快速宽松筛选
+      const primaryResult = await performPrimaryScreening(env, title, description, logs);
       
-      if (!screeningResult || !screeningResult.relevant) {
-        logs.push(`[AI筛选] ⏭️ 不相关，跳过: ${title.substring(0, 30)}...`);
+      if (!primaryResult.relevant) {
+        logs.push(`[一级筛选] ⏭️ 完全不相关，跳过: ${title.substring(0, 30)}...`);
         continue;
       }
       
-      // 第二阶段：内容生成（使用Claude/Gemini）
-      logs.push(`[AI内容] 🎯 开始生成高质量内容...`);
-      const contentResult = await callAI(env, title, description, 'content_generation');
+      let shouldProcess = false;
+      let screeningStage = '';
       
-      let finalAiData;
-      
-      if (contentResult && contentResult.title_zh && contentResult.summary_zh) {
-        // 高质量AI内容生成成功
-        finalAiData = contentResult;
-        logs.push(`[AI内容] ✅ 高质量内容生成成功`);
-      } else {
-        // AI生成失败，跳过该文章
-        logs.push(`[AI内容] ❌ 内容生成失败，跳过文章`);
+      // 高置信度直接通过
+      if (primaryResult.confidence >= 0.8) {
+        shouldProcess = true;
+        screeningStage = '一级高分通过';
+        logs.push(`[一级筛选] 🎯 高置信度(${primaryResult.confidence})直接通过`);
+      }
+      // 中等置信度进入二级筛选  
+      else if (primaryResult.confidence >= 0.3) {
+        logs.push(`[二级筛选] 🔬 中等置信度(${primaryResult.confidence})，启动Gemini深度分析...`);
+        const secondaryResult = await performSecondaryScreening(env, title, description, primaryResult, logs);
+        
+        if (secondaryResult && secondaryResult.approved) {
+          shouldProcess = true;
+          screeningStage = '二级深度通过';
+          logs.push(`[二级筛选] ✅ 深度分析通过，综合评分: ${secondaryResult.overall_score}`);
+        } else {
+          logs.push(`[二级筛选] ❌ 深度分析未通过`);
+          continue;
+        }
+      }
+      // 低置信度拒绝
+      else {
+        logs.push(`[一级筛选] ❌ 置信度过低(${primaryResult.confidence})，拒绝`);
         continue;
+      }
       
-      // 新的数据结构：AI 已返回完整双语内容
-      const originalLang = finalAiData.original_language || "en";
+      // 通过筛选，开始内容生成
+      if (shouldProcess) {
+        logs.push(`[AI内容] 🎯 ${screeningStage} - 开始生成高质量内容...`);
+        const contentResult = await callAI(env, title, description, 'content_generation');
+        
+        let finalAiData;
+        
+        if (contentResult && contentResult.title_zh && contentResult.summary_zh) {
+          // 高质量AI内容生成成功
+          finalAiData = contentResult;
+          logs.push(`[AI内容] ✅ 高质量内容生成成功`);
+        } else {
+          // AI生成失败，跳过该文章
+          logs.push(`[AI内容] ❌ 内容生成失败，跳过文章`);
+          continue;
+        }
+        
+        // 新的数据结构：AI 已返回完整双语内容
+        const originalLang = finalAiData.original_language || "en";
       logs.push(`[AI] ✅ 相关, 原文语言: ${originalLang}`);
       logs.push(`[内容] 中文摘要: ${finalAiData.summary_zh.length} 字, 英文摘要: ${finalAiData.summary_en.length} 字`);
       
@@ -1675,31 +1706,42 @@ OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hu
   return JSON.parse(jsonMatch[0]);
 }
 
-async function callOpenRouterAI(env, title, description, purpose = 'screening') {
+async function callOpenRouterAI(env, title, description, purpose = 'screening', specificModel = null, customPrompt = null) {
   console.log(`[OpenRouter] 🎯 AI任务: ${purpose}`);
   console.log(`[OpenRouter] API Key存在: ${!!env.OPENROUTER_API_KEY}`);
   
-  // 根据任务类型选择AI提示词
-  const prompt = createPromptForPurpose(purpose, title, description);
+  // 使用自定义提示词或创建标准提示词
+  const prompt = customPrompt || createPromptForPurpose(purpose, title, description);
   
-  // 根据任务类型选择模型组
-  let modelGroup;
-  switch (purpose) {
-    case 'screening':
-      modelGroup = 'screening';  // 使用Grok/Groq进行快速筛选
-      break;
-    case 'content_generation':
-      modelGroup = 'content_generation';  // 使用Claude/Gemini进行内容生成
-      break;
-    case 'translation_refinement':
-      modelGroup = 'translation_refinement';  // 使用最高质量模型进行翻译精修
-      break;
-    default:
-      modelGroup = 'screening';
-  }
+  // 如果指定了特定模型，则只使用该模型
+  let modelList;
+  if (specificModel) {
+    modelList = [specificModel];
+    console.log(`[OpenRouter] 使用指定模型: ${specificModel}`);
+  } else {
+    // 根据任务类型选择模型组
+    let modelGroup;
+    switch (purpose) {
+      case 'screening':
+      case 'primary_screening':
+        modelGroup = 'screening';  // 使用Grok/Groq进行快速筛选
+        break;
+      case 'secondary_screening':
+        modelGroup = 'content_generation';  // 使用高质量模型进行深度筛选
+        break;
+      case 'content_generation':
+        modelGroup = 'content_generation';  // 使用Claude/Gemini进行内容生成
+        break;
+      case 'translation_refinement':
+        modelGroup = 'translation_refinement';  // 使用最高质量模型进行翻译精修
+        break;
+      default:
+        modelGroup = 'screening';
+    }
 
-  const modelList = OPENROUTER_CONFIG.models[modelGroup] || OPENROUTER_CONFIG.models.screening;
-  console.log(`[OpenRouter] 使用${modelGroup}模型组，共${modelList.length}个模型`);
+    modelList = OPENROUTER_CONFIG.models[modelGroup] || OPENROUTER_CONFIG.models.screening;
+    console.log(`[OpenRouter] 使用${modelGroup}模型组，共${modelList.length}个模型`);
+  }
   
   for (let i = 0; i < modelList.length; i++) {
     const model = modelList[i];
@@ -2495,6 +2537,163 @@ function isNearSystemScheduledTime(messageTime) {
   return scheduledHours.some(schedHour => {
     return hour === schedHour && minute <= 10; // 推送后10分钟内
   });
+}
+
+/**
+ * 第一层AI筛选：使用Grok/Groq进行快速宽松筛选
+ * @param {Object} env - 环境变量
+ * @param {string} title - 文章标题
+ * @param {string} description - 文章描述
+ * @param {Array} logs - 日志数组
+ * @returns {Object} 筛选结果
+ */
+async function performPrimaryScreening(env, title, description, logs) {
+  const prompt = `你是一个AI新闻筛选专家。请快速判断以下内容是否与AI领域相关。
+
+标题: ${title}
+描述: ${description}
+
+🎯 筛选目标：捕捉所有AI软硬件产品发布、AI Agent、功能更新等
+
+✅ 必须包含的内容类型：
+- AI/ML模型发布和更新（ChatGPT、Claude、Gemini、GPT-4等）
+- AI产品和服务上线（AI搜索、AI助手、AI工具等）
+- AI硬件和芯片发布（NVIDIA GPU、AI芯片、TPU等）
+- AI开发工具和平台（LangChain、Hugging Face、Replicate等）
+- AI Agent和自动化工具（智能助手、工作流自动化等）
+- 大厂AI功能更新（Google、Microsoft、OpenAI、Apple等）
+- AI研究和论文（Attention机制、Transformer、强化学习等）
+- AI公司动态和融资（AI创业公司、收购、合作等）
+- AI政策和监管（AI伦理、AI安全、政府政策等）
+- AI基础设施（PostgreSQL for AI、AI云服务、MLOps等）
+
+🔍 关键信号词：
+AI, ML, ChatGPT, Claude, Gemini, GPT, LLM, 机器学习, 深度学习, 神经网络, Agent, 自动化, 发布, 更新, 上线, launch, release, announce, beta, API, SDK
+
+🏢 重要公司和产品：
+OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Hugging Face, Replicate, Stability AI, Midjourney, Adobe, Salesforce
+
+请返回JSON格式：
+{
+  "relevant": true/false,
+  "confidence": 0.0-1.0,
+  "category": "产品发布/技术更新/研究论文/公司动态/基础设施/其他",
+  "reason": "简短原因（不超过50字）"
+}
+
+⭐ 原则：宁可多收录，不要遗漏重要AI产品发布！对于边界情况，倾向于标记为相关。`;
+
+  // 首选Grok，备选Groq
+  const models = ['x-ai/grok-2-1212', 'groq/llama-3.1-70b-versatile'];
+  
+  for (const model of models) {
+    try {
+      logs.push(`[一级筛选] 🔍 使用 ${model} 进行快速筛选...`);
+      const result = await callOpenRouterAI(env, title, description, 'primary_screening', model, prompt);
+      
+      if (result && result.relevant !== undefined) {
+        logs.push(`[一级筛选] ✅ ${model} 返回结果: 相关=${result.relevant}, 置信度=${result.confidence}`);
+        return result;
+      }
+    } catch (error) {
+      logs.push(`[一级筛选] ❌ ${model} 失败: ${error.message}`);
+      continue;
+    }
+  }
+  
+  // 全部失败，返回保守结果（倾向于通过）
+  logs.push(`[一级筛选] ⚠️ 所有模型失败，采用宽松策略`);
+  return { 
+    relevant: true, 
+    confidence: 0.5, 
+    category: "未知",
+    reason: "AI筛选失败，采用保守策略" 
+  };
+}
+
+/**
+ * 第二层AI筛选：使用Gemini 2.5 Pro进行深度语义理解
+ * @param {Object} env - 环境变量
+ * @param {string} title - 文章标题
+ * @param {string} description - 文章描述
+ * @param {Object} primaryResult - 一级筛选结果
+ * @param {Array} logs - 日志数组
+ * @returns {Object} 深度筛选结果
+ */
+async function performSecondaryScreening(env, title, description, primaryResult, logs) {
+  const prompt = `你是一个资深AI行业分析师。请对以下已通过初筛的内容进行深度评估。
+
+标题: ${title}  
+描述: ${description}
+初筛结果: ${JSON.stringify(primaryResult)}
+
+📊 评估维度（各25%权重）：
+1. AI相关性：与AI技术的直接关联度
+2. 产品影响力：对AI生态的潜在影响
+3. 创新程度：技术或应用的创新性
+4. 市场意义：商业和市场价值
+
+🎯 重点关注（必须通过的类型）：
+- 重大AI模型发布（GPT新版本、Claude更新、Gemini发布等）
+- 知名公司的AI功能更新（Google AI搜索、Microsoft Copilot等）
+- AI基础设施和工具链（LangChain更新、Hugging Face新功能等）
+- AI Agent和自动化解决方案（智能助手、工作流工具等）
+- 影响行业的AI研究成果（重要论文、技术突破等）
+- AI硬件和平台发布（NVIDIA新品、AI芯片、云服务等）
+- AI安全和伦理重要进展（政策法规、安全研究等）
+
+🚀 优先级产品类型：
+- AI模型和服务发布 (高优先级)
+- 大厂AI功能更新 (高优先级)  
+- AI开发工具和平台 (中高优先级)
+- AI研究和技术突破 (中高优先级)
+- AI硬件和基础设施 (中优先级)
+- AI政策和行业动态 (中优先级)
+
+请返回JSON格式：
+{
+  "approved": true/false,
+  "overall_score": 0.0-1.0,
+  "dimension_scores": {
+    "ai_relevance": 0.0-1.0,
+    "product_impact": 0.0-1.0, 
+    "innovation_level": 0.0-1.0,
+    "market_significance": 0.0-1.0
+  },
+  "content_type": "具体分类（如：AI模型发布、产品功能更新、技术研究等）",
+  "key_highlights": ["要点1", "要点2", "要点3"],
+  "reasoning": "详细分析原因（100-200字）"
+}
+
+⭐ 评分标准：
+- 0.7+：重要AI产品/技术，强烈推荐收录
+- 0.5-0.69：有价值的AI内容，建议收录
+- 0.3-0.49：边缘相关，谨慎决策
+- 0.3以下：不相关，建议拒绝
+
+🎯 决策倾向：保持开放态度，重点是不遗漏有价值的AI产品和技术更新。`;
+
+  try {
+    logs.push(`[二级筛选] 🔬 使用 Gemini 2.5 Pro 进行深度分析...`);
+    const result = await callOpenRouterAI(env, title, description, 'secondary_screening', 'google/gemini-2.5-flash-thinking-exp', prompt);
+    
+    if (result && result.approved !== undefined) {
+      logs.push(`[二级筛选] ✅ Gemini 分析完成: 通过=${result.approved}, 综合评分=${result.overall_score}`);
+      return result;
+    }
+  } catch (error) {
+    logs.push(`[二级筛选] ❌ Gemini 分析失败: ${error.message}`);
+  }
+  
+  // 失败时的宽松策略
+  const fallbackApproved = primaryResult.confidence >= 0.5;
+  logs.push(`[二级筛选] ⚠️ 分析失败，基于初筛置信度(${primaryResult.confidence})决策: ${fallbackApproved}`);
+  
+  return {
+    approved: fallbackApproved,
+    overall_score: primaryResult.confidence,
+    reasoning: "二级筛选失败，基于初筛结果和宽松策略决策"
+  };
 }
 
 /**

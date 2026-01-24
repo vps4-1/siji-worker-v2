@@ -108,48 +108,52 @@ const CLAUDE_CONFIG = {
   version: '2023-06-01'
 };
 
+// 🤖 OpenRouter 模型配置 - Gemini 2.5 Pro 成本优化策略
+// 💰 成本对比：Gemini (~$1.25/1M) vs Claude (~$3/1M) vs Grok (~$2/1M)
+// 🎯 策略：Gemini主力 + Claude质量保证 + Grok速度补充
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 🔍 第一层筛选 - Claude/Groq 快速宽松筛选
+    // 🔍 第一层筛选 - Grok 4.1 Fast 快速筛选
     screening: [
-      'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - AI产品发布专门检测
-      'groq/llama-3.1-70b-versatile',           // Groq 70B - 快速筛选备用
-      'anthropic/claude-3-5-haiku'              // Claude 3.5 Haiku - 超快速备用
+      'x-ai/grok-4.1-fast',                          // Grok 4.1 Fast - 主力快速筛选
+      'groq/llama-3.1-70b-versatile',               // Groq 70B - 快速备用
+      'anthropic/claude-3-5-haiku'                  // Claude 3.5 Haiku - 高质量备用
     ],
     
-    // 🔬 第二层深度筛选 - Claude 语义理解
+    // 🔬 第二层深度筛选 - Gemini 2.5 Pro 成本优化
     secondary_screening: [
-      'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - 深度语义分析主力
-      'anthropic/claude-3-5-haiku',             // Claude 3.5 Haiku - 高质量备用
-      'groq/llama-3.1-70b-versatile'           // Groq 70B - 次级备用
+      'google/gemini-2.5-pro',                       // Gemini 2.5 Pro - 成本最优主力
+      'anthropic/claude-3-5-sonnet',                // Claude 3.5 Sonnet - 高质量备用
+      'x-ai/grok-4.1-fast'                          // Grok 4.1 Fast - 速度备用
     ],
     
-    // 📝 文章内容生成和翻译 - Claude 高质量模型  
+    // 📝 内容生成 - Gemini 2.5 Pro 成本优化策略
     content_generation: [
-      'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - 主力内容生成
-      'anthropic/claude-3-5-haiku',             // Claude 3.5 Haiku - 高质量备用
-      'groq/llama-3.1-70b-versatile'           // Groq 70B - 次级备用
+      'google/gemini-2.5-pro',                       // Gemini 2.5 Pro - 成本最优主力（-60%成本）
+      'anthropic/claude-3-5-sonnet',                // Claude 3.5 Sonnet - 质量保证备用
+      'x-ai/grok-4.1-fast'                          // Grok 4.1 Fast - 快速生成备用
     ],
     
-    // 🎯 双语摘要和标题优化 - 最高质量模型
+    // 🎯 翻译精修 - Claude 保证最高质量
     translation_refinement: [
-      'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - 翻译精修
-      'anthropic/claude-3-5-haiku'             // Claude 3.5 Haiku - 多语言优化
+      'anthropic/claude-3-5-sonnet',                // Claude 3.5 Sonnet - 翻译质量最优
+      'google/gemini-2.5-pro',                      // Gemini 2.5 Pro - 成本友好备用
+      'x-ai/grok-4.1-fast'                          // Grok 4.1 Fast - 快速备用
     ],
     
-    // 翻译和术语标注 - Claude优先策略
+    // 🔤 翻译专用 - 成本优化
     translation: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 多语言+成本优化
-      'groq/llama-3.1-70b-versatile',      // Groq 70B - 专业术语
-      'anthropic/claude-3-5-sonnet'        // Claude 3.5 Sonnet - 高质量备用
+      'google/gemini-2.5-pro',                      // Gemini 2.5 Pro - 多语言成本最优
+      'x-ai/grok-4.1-fast',                         // Grok 4.1 Fast - 快速翻译
+      'anthropic/claude-3-5-haiku'                  // Claude 3.5 Haiku - 质量保证
     ],
     
-    // 默认降级序列 - Claude优先策略
+    // 🆘 默认降级序列 - Gemini优先成本策略  
     fallback: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 速度+成本+理解力的完美组合
-      'groq/llama-3.1-8b-instant',         // Groq 8B - 超速备用
-      'anthropic/claude-3-5-sonnet'        // Claude 3.5 Sonnet - 高质量最终备用
+      'google/gemini-2.5-pro',                      // Gemini 2.5 Pro - 成本最优主力
+      'x-ai/grok-4.1-fast',                         // Grok 4.1 Fast - 速度备用
+      'anthropic/claude-3-5-haiku'                  // Claude 3.5 Haiku - 质量保证
     ]
   }
 };
@@ -653,10 +657,16 @@ export default {
         service: 'Siji Worker V2',
         provider: env.AI_PROVIDER || 'openrouter',
         timestamp: new Date().toISOString(),
-        version: '2.0.1',
-        rss_strategy: 'smart_rotation',
+        version: '2.1.0-gemini',
+        rss_strategy: 'parallel_processing',
+        ai_strategy: 'gemini_cost_optimized',
+        models: {
+          primary: 'Gemini 2.5 Pro (成本优化)',
+          screening: 'Grok 4.1 Fast',
+          quality_backup: 'Claude 3.5 Sonnet'
+        },
         telegram_webhook: '已移除',
-        features: ['RSS聚合', 'AI处理', 'Payload发布']
+        features: ['RSS并行聚合', 'Gemini+Claude混合AI', 'TG短摘要发布', '分层筛选']
       }), {
         headers: { 
           'Content-Type': 'application/json',
@@ -2428,11 +2438,11 @@ async function performSecondaryScreening(env, title, description, primaryResult,
 🎯 决策倾向：保持开放态度，重点是不遗漏有价值的AI产品和技术更新。`;
 
   try {
-    logs.push(`[二级筛选] 🔬 使用 Gemini 2.5 Pro 进行深度分析...`);
-    const result = await callOpenRouterAI(env, title, description, 'secondary_screening', 'anthropic/claude-3-5-sonnet', prompt);
+    logs.push(`[二级筛选] 🔬 使用 Gemini 2.5 Pro 进行深度分析（成本优化-60%）...`);
+    const result = await callOpenRouterAI(env, title, description, 'secondary_screening', null, prompt);
     
     if (result && result.approved !== undefined) {
-      logs.push(`[二级筛选] ✅ Gemini 分析完成: 通过=${result.approved}, 综合评分=${result.overall_score}`);
+      logs.push(`[二级筛选] ✅ Gemini 2.5 Pro 分析完成: 通过=${result.approved}, 综合评分=${result.overall_score}`);
       return result;
     }
   } catch (error) {

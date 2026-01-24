@@ -884,18 +884,20 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       // AI 判定与双语内容生成 - 使用更宽松的筛选策略
       const aiData = await callAI(env, title, description, 'screening');
       
-      // 修正后的强制收录逻辑：所有文章必须经过AI处理
+      // 修正后的强制收录逻辑：降低AI筛选门槛，但保持质量
       if (!aiData || !aiData.relevant) {
         if (shouldForceInclude) {
-          // 强制收录：但仍然要求AI生成高质量内容
-          logs.push(`[AI] 🚨 强制收录，要求AI重新处理: ${title.substring(0, 50)}...`);
-          const forceAiData = await callAI(env, title, description, 'forced_screening');
+          // 强制收录：使用更宽松的AI筛选，但仍要求生成高质量内容
+          logs.push(`[AI] 🚨 强制收录，宽松AI处理: ${title.substring(0, 50)}...`);
+          const forceAiData = await callAI(env, title, description, 'screening');
           
-          if (forceAiData && forceAiData.relevant) {
+          if (forceAiData) {
+            // 强制接受AI结果，但确保有完整数据
+            forceAiData.relevant = true; // 强制设为相关
             finalAiData = forceAiData;
-            logs.push(`[AI] ✅ 强制收录成功，AI已生成高质量内容`);
+            logs.push(`[AI] ✅ 强制收录成功，已生成专业内容`);
           } else {
-            logs.push(`[AI] ❌ 强制收录失败，AI拒绝处理此内容`);
+            logs.push(`[AI] ❌ 强制收录失败，AI完全无法处理`);
             continue;
           }
         } else {

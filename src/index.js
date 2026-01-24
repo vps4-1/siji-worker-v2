@@ -884,45 +884,26 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       // AI 判定与双语内容生成 - 使用更宽松的筛选策略
       const aiData = await callAI(env, title, description, 'screening');
       
-      // 判断是否应该强制收录或继续
-      if (!shouldForceInclude && (!aiData || !aiData.relevant)) {
-        logs.push(`[AI] ⏭️ 不相关`);
-        continue;
-      }
-      
-      // 如果是强制收录，记录日志
-      if (shouldForceInclude && (!aiData || !aiData.relevant)) {
-        logs.push(`[AI] 🚨 强制收录: ${title.substring(0, 50)}...`);
-      }
-      
-      // 如果是强制收录但AI判断为不相关，调用AI生成翻译内容
-      let finalAiData;
-      if (shouldForceInclude && (!aiData || !aiData.relevant)) {
-        // 强制收录：使用AI重新生成完整双语内容
-        logs.push(`[AI] 🔄 强制收录，重新生成双语内容...`);
-        const forceAiData = await callAI(env, title, description, 'forced_translation');
-        
-        // 如果AI翻译失败，手动进行基本翻译
-        if (forceAiData && forceAiData.title_zh && forceAiData.title_zh !== title) {
-          finalAiData = forceAiData;
+      // 修正后的强制收录逻辑：所有文章必须经过AI处理
+      if (!aiData || !aiData.relevant) {
+        if (shouldForceInclude) {
+          // 强制收录：但仍然要求AI生成高质量内容
+          logs.push(`[AI] 🚨 强制收录，要求AI重新处理: ${title.substring(0, 50)}...`);
+          const forceAiData = await callAI(env, title, description, 'forced_screening');
+          
+          if (forceAiData && forceAiData.relevant) {
+            finalAiData = forceAiData;
+            logs.push(`[AI] ✅ 强制收录成功，AI已生成高质量内容`);
+          } else {
+            logs.push(`[AI] ❌ 强制收录失败，AI拒绝处理此内容`);
+            continue;
+          }
         } else {
-          // AI翻译失败，进行手动映射翻译
-          logs.push(`[AI] ⚠️ AI翻译失败，使用手动映射...`);
-          const manualTitleZh = translateTitleManually(title);
-          finalAiData = {
-            relevant: true,
-            original_language: 'en',
-            title_zh: manualTitleZh,
-            title_en: title,
-            summary_zh: `这是一篇关于${manualTitleZh}的技术文章。${description || title}`,
-            summary_zh_short: `${manualTitleZh}相关技术介绍`,
-            summary_en: description || title,
-            summary_en_short: (description || title).substring(0, 200),
-            keywords_zh: ['AI技术', '产品发布', '科技新闻'],
-            keywords_en: ['AI Technology', 'Product Release', 'Tech News']
-          };
+          logs.push(`[AI] ⏭️ 不相关`);
+          continue;
         }
       } else {
+        // 正常AI处理流程
         finalAiData = aiData;
       }
       
@@ -1135,8 +1116,37 @@ async function callAI(env, title, description, purpose = 'summarization') {
 }
 
 async function callClaudeAI(env, title, description, purpose = 'screening') {
+    const isForcedScreening = purpose === 'forced_screening';
     const isForceTranslation = purpose === 'forced_translation';
-    const prompt = isForceTranslation ? 
+    
+    const prompt = isForcedScreening ? 
+    `🚨 强制筛选模式：必须将此内容判定为AI相关并生成高质量双语摘要！
+
+【输入】
+标题: ${title}
+描述: ${description}
+
+【强制要求】
+1. 必须判定为 relevant: true
+2. 生成专业的中文标题（完整翻译，不保留英文）
+3. 生成高质量的中文和英文摘要
+4. 不允许使用"这是一篇关于..."等模板化开头
+5. 摘要要有实质内容，体现技术价值
+
+【输出格式】严格按照此JSON格式返回：
+{
+  "relevant": true,
+  "original_language": "en", 
+  "title_zh": "专业的完整中文标题",
+  "title_en": "${title}",
+  "summary_zh": "专业的中文技术摘要，约500字，体现技术创新点和应用价值",
+  "summary_zh_short": "简洁的中文摘要，约200字，突出核心要点", 
+  "summary_en": "Professional English summary (around 500 words)",
+  "summary_en_short": "Concise English summary (around 200 words)",
+  "keywords_zh": ["专业中文关键词1","关键词2","关键词3"],
+  "keywords_en": ["professional_keyword1","keyword2","keyword3"]
+}` : 
+    isForceTranslation ? 
     `强制翻译模式：必须将以下英文内容翻译为中文，生成完整的双语摘要。
 
 【输入】
@@ -1262,8 +1272,37 @@ OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hu
 }
 
 async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
+  const isForcedScreening = purpose === 'forced_screening';
   const isForceTranslation = purpose === 'forced_translation';
-  const prompt = isForceTranslation ?
+  
+  const prompt = isForcedScreening ?
+  `🚨 强制筛选模式：必须将此内容判定为AI相关并生成高质量双语摘要！
+
+【输入】
+标题: ${title}
+描述: ${description}
+
+【强制要求】
+1. 必须判定为 relevant: true
+2. 生成专业的中文标题（完整翻译，不保留英文）
+3. 生成高质量的中文和英文摘要
+4. 不允许使用"这是一篇关于..."等模板化开头
+5. 摘要要有实质内容，体现技术价值
+
+【输出格式】严格按照此JSON格式返回：
+{
+  "relevant": true,
+  "original_language": "en",
+  "title_zh": "专业的完整中文标题",
+  "title_en": "${title}",
+  "summary_zh": "专业的中文技术摘要，约500字，体现技术创新点和应用价值",
+  "summary_zh_short": "简洁的中文摘要，约200字，突出核心要点",
+  "summary_en": "Professional English summary (around 500 words)",
+  "summary_en_short": "Concise English summary (around 200 words)",
+  "keywords_zh": ["专业中文关键词1","关键词2","关键词3"],
+  "keywords_en": ["professional_keyword1","keyword2","keyword3"]
+}` :
+  isForceTranslation ?
   `强制翻译模式：必须将以下英文内容翻译为中文，生成完整的双语摘要。
 
 【输入】

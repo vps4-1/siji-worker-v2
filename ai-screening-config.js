@@ -1,263 +1,254 @@
 /**
- * AI分层筛选配置 - 放宽标准，重点捕捉AI产品发布和功能更新
+ * 重点AI产品发布筛选配置 - 确保不遗漏任何重要发布
  * 
- * 架构：
- * 1. Grok/Groq 初级筛选（快速、宽松）
- * 2. Gemini 2.5 Pro 二级筛选（深度、语义理解）
+ * 核心原则：AI产品发布必须推送！
  */
 
-export const AI_SCREENING_CONFIG = {
-  // 第一层筛选：Grok/Groq - 快速宽松筛选
-  primary_screening: {
-    models: ['x-ai/grok-2-1212', 'groq/llama-3.1-70b-versatile'],
-    threshold: 0.3, // 降低阈值，更宽松
-    keywords_weight: 0.6,
-    context_weight: 0.4,
+export const AI_PRODUCT_SCREENING = {
+  // 🔥 必须捕获的公司和产品 - 任何相关内容都推送
+  critical_entities: {
+    // 核心AI公司
+    companies: [
+      'google', 'deepmind', 'alphabet',
+      'openai', 'chatgpt', 'gpt',
+      'anthropic', 'claude',
+      'xai', 'x.ai', 'grok', 'elon musk',
+      'meta', 'facebook', 'llama', 'pytorch',
+      'microsoft', 'azure', 'copilot', 'bing',
+      'amazon', 'aws', 'bedrock', 'alexa',
+      'nvidia', 'cuda', 'tensorrt', 'omniverse', 'h100', 'a100',
+      'apple', 'siri', 'core ml',
+      'deepseek', 'qwen', 'alibaba', 'tongyi',
+      'groq', 'cerebras', 'together ai',
+      'genspark', 'manus', 'moonshot', 'zhipu',
+      'baidu', 'ernie', 'paddle', 'wenxin',
+      'tencent', 'hunyuan', 'wechat ai',
+      'bytedance', 'doubao', 'volcano engine',
+      'minimax', 'abab', 'sensetime',
+      'hugging face', 'stability ai', 'midjourney',
+      'replicate', 'runway', 'pika labs',
+      '谷歌', '微软', '苹果', '英伟达', '亚马逊', '阿里巴巴', '腾讯', '百度', '字节跳动'
+    ],
     
-    // 扩展的AI相关关键词
-    ai_keywords: [
-      // 核心AI术语
-      'AI', 'ML', 'LLM', 'GPT', 'ChatGPT', 'Claude', 'Gemini', 'Bard',
-      'machine learning', 'deep learning', 'neural network', 'transformer',
-      'diffusion', 'stable diffusion', 'midjourney', 'dalle',
+    // AI产品和模型
+    products: [
+      // 大语言模型
+      'gpt-4', 'gpt-3.5', 'gpt-4o', 'gpt-4-turbo', 'o1', 'o3',
+      'claude-3', 'claude-3.5', 'claude-sonnet', 'claude-haiku', 'claude-opus',
+      'gemini', 'gemini-pro', 'gemini-ultra', 'gemini-nano', 'gemini-2.0',
+      'llama', 'llama-2', 'llama-3', 'llama-3.1', 'llama-3.2',
+      'grok-2', 'grok-1.5', 'grok-beta',
+      'deepseek-v2', 'deepseek-coder', 'deepseek-v3',
+      'qwen-2', 'qwen-2.5', 'qwen-max', 'tongyi-qianwen',
+      'doubao', 'hunyuan', 'ernie-4', 'wenxin',
+      'minimax-abab', 'yi-large', 'baichuan',
       
-      // AI Agent和自动化
-      'ai agent', 'autonomous agent', 'multi-agent', 'agent framework',
-      'langchain', 'autogen', 'crew ai', 'semantic kernel',
-      'workflow automation', 'robotic process automation', 'rpa',
+      // AI Agent和框架
+      'ai agent', 'autonomous agent', 'multi-agent',
+      'langchain', 'langgraph', 'autogen', 'crew ai',
+      'semantic kernel', 'haystack', 'llamaindex',
+      'chatdev', 'metagpt', 'agentgpt', 'auto-gpt',
+      'jarvis', 'friday', 'assistant api',
+      'workflow automation', 'process automation',
       
-      // AI软硬件产品
-      'ai chip', 'gpu', 'tpu', 'ai accelerator', 'inference engine',
-      'edge ai', 'ai sdk', 'api', 'model serving', 'deployment',
-      'ai platform', 'mlops', 'ai infrastructure',
-      
-      // 产品发布关键词
+      // AI工具和平台  
+      'chatgpt plus', 'claude pro', 'gemini advanced',
+      'copilot pro', 'copilot studio', 'github copilot',
+      'cursor', 'replit', 'codeium', 'tabnine',
+      'stable diffusion', 'midjourney', 'dall-e', 'firefly',
+      'sora', 'runway gen', 'pika', 'luma ai',
+      'elevenlabs', 'murf ai', 'speechify',
+      'perplexity', 'you.com', 'phind', 'devv',
+      'notion ai', 'obsidian ai', 'roam research'
+    ],
+    
+    // AI硬件和基础设施
+    hardware: [
+      'h100', 'h200', 'a100', 'a6000', 'l40s', 'l4',
+      'tpu', 'tpu-v4', 'tpu-v5', 'inference chips',
+      'ai chip', 'ai accelerator', 'neural processing unit',
+      'edge ai', 'jetson', 'xavier', 'orin',
+      'groq lpu', 'cerebras wafer', 'graphcore ipu',
+      'ai server', 'ai workstation', 'ai cloud',
+      'cuda', 'rocm', 'oneapi', 'triton',
+      'tensorrt', 'openvino', 'onnx runtime'
+    ]
+  },
+  
+  // 🚨 产品发布关键信号词
+  release_signals: {
+    // 发布动词
+    launch_verbs: [
       'launch', 'release', 'unveil', 'announce', 'introduce',
-      'beta', 'preview', 'update', 'version', 'upgrade',
-      '发布', '推出', '上线', '更新', '升级', '版本',
-      
-      // 功能更新
-      'feature', 'capability', 'enhancement', 'improvement',
-      'integration', 'support', 'plugin', 'extension',
-      '功能', '特性', '增强', '改进', '集成', '支持'
+      'debut', 'rollout', 'ship', 'deploy', 'go live',
+      'available', 'open source', 'open-source',
+      '发布', '推出', '上线', '公布', '宣布', '开源',
+      '正式发布', '正式上线', '全面推出'
     ],
     
-    // 重要公司和平台
-    important_entities: [
-      'openai', 'google', 'microsoft', 'meta', 'amazon', 'apple',
-      'nvidia', 'anthropic', 'hugging face', 'replicate',
-      'stability ai', 'midjourney', 'runaway', 'adobe',
-      'salesforce', 'databricks', 'snowflake', 'github',
-      '谷歌', '微软', '苹果', '英伟达', '亚马逊'
+    // 版本更新
+    version_updates: [
+      'version', 'v2', 'v3', 'v4', '2.0', '3.0', '4.0',
+      'update', 'upgrade', 'enhancement', 'improvement',
+      'beta', 'alpha', 'preview', 'early access',
+      'new feature', 'new capability', 'now supports',
+      '版本', '更新', '升级', '增强', '改进',
+      '新功能', '新特性', '新增', '支持'
     ],
     
-    // AI产品和服务
-    ai_products: [
-      'chatgpt', 'claude', 'gemini', 'bard', 'copilot', 'siri', 'alexa',
-      'midjourney', 'stable diffusion', 'dall-e', 'firefly',
-      'langchain', 'llama', 'palm', 'gpt-4', 'gpt-3.5',
-      'whisper', 'codex', 'embeddings', 'fine-tuning',
-      'isaac', 'replicate', 'hugging face', 'gradio'
+    // 重要里程碑
+    milestones: [
+      'breakthrough', 'milestone', 'first', 'world first',
+      'record-breaking', 'state-of-the-art', 'sota',
+      'best-in-class', 'leading', 'cutting-edge',
+      'revolutionary', 'game-changing', 'innovative',
+      '突破', '里程碑', '首个', '世界首个',
+      '创纪录', '最先进', '领先', '革命性', '创新'
     ]
   },
   
-  // 第二层筛选：Gemini 2.5 Pro - 深度语义理解
-  secondary_screening: {
-    model: 'google/gemini-2.5-flash-thinking-exp',
-    threshold: 0.6, // 稍高阈值，但仍然包容
-    
-    // 深度评估维度
-    evaluation_criteria: {
-      ai_relevance: 0.25,      // AI技术相关性
-      product_impact: 0.25,    // 产品影响力
-      innovation_level: 0.20,  // 创新程度
-      market_significance: 0.15, // 市场意义
-      technical_depth: 0.15    // 技术深度
-    },
-    
-    // 必须通过的产品类型
-    must_include_types: [
-      'ai_model_release',      // AI模型发布
-      'ai_product_launch',     // AI产品上线
-      'ai_feature_update',     // AI功能更新
-      'ai_platform_service',   // AI平台服务
-      'ai_hardware_announce',  // AI硬件发布
-      'ai_sdk_api_release',    // AI SDK/API发布
-      'ai_research_breakthrough', // AI研究突破
-      'ai_company_news',       // AI公司重要消息
-      'ai_funding_acquisition', // AI融资收购
-      'ai_partnership',        // AI合作伙伴关系
-      'ai_regulation_policy',  // AI监管政策
-      'ai_ethics_safety'       // AI伦理安全
-    ]
-  },
+  // 🎯 必须推送的内容类型
+  must_push_types: [
+    'ai_model_release',        // AI模型发布
+    'ai_product_launch',       // AI产品上线
+    'ai_api_release',          // AI API发布
+    'ai_platform_update',      // AI平台更新
+    'ai_hardware_announce',    // AI硬件发布
+    'ai_funding_news',         // AI融资消息
+    'ai_partnership',          // AI合作发布
+    'ai_acquisition',          // AI收购消息
+    'ai_research_paper',       // 重要AI论文
+    'ai_conference_keynote',   // AI会议重要发言
+    'ai_policy_regulation',    // AI政策法规
+    'ai_safety_breakthrough', // AI安全突破
+    'ai_benchmark_result',     // AI基准测试结果
+    'ai_demo_showcase',        // AI产品演示
+    'ai_open_source'           // AI开源项目
+  ]
+};
+
+// 🔍 智能筛选函数 - 基于关键实体和信号词
+export function intelligentAIScreening(title, description) {
+  const text = `${title} ${description}`.toLowerCase();
+  const config = AI_PRODUCT_SCREENING;
   
-  // 筛选提示词模板
-  prompts: {
-    primary_screening: `你是一个AI新闻筛选专家。请快速判断以下内容是否与AI领域相关。
+  let score = 0;
+  let signals = [];
+  let entityMatches = [];
+  
+  // 1. 检查关键公司/产品 (权重最高)
+  for (const company of config.critical_entities.companies) {
+    if (text.includes(company.toLowerCase())) {
+      score += 0.4; // 公司匹配权重40%
+      entityMatches.push(company);
+      signals.push(`关键公司: ${company}`);
+    }
+  }
+  
+  for (const product of config.critical_entities.products) {
+    if (text.includes(product.toLowerCase())) {
+      score += 0.3; // 产品匹配权重30%
+      entityMatches.push(product);
+      signals.push(`AI产品: ${product}`);
+    }
+  }
+  
+  for (const hardware of config.critical_entities.hardware) {
+    if (text.includes(hardware.toLowerCase())) {
+      score += 0.25; // 硬件匹配权重25%
+      entityMatches.push(hardware);
+      signals.push(`AI硬件: ${hardware}`);
+    }
+  }
+  
+  // 2. 检查发布信号词
+  for (const verb of config.release_signals.launch_verbs) {
+    if (text.includes(verb.toLowerCase())) {
+      score += 0.2; // 发布动词权重20%
+      signals.push(`发布信号: ${verb}`);
+      break; // 只加一次分
+    }
+  }
+  
+  for (const version of config.release_signals.version_updates) {
+    if (text.includes(version.toLowerCase())) {
+      score += 0.15; // 版本更新权重15%
+      signals.push(`版本更新: ${version}`);
+      break;
+    }
+  }
+  
+  for (const milestone of config.release_signals.milestones) {
+    if (text.includes(milestone.toLowerCase())) {
+      score += 0.1; // 里程碑权重10%
+      signals.push(`重要里程碑: ${milestone}`);
+      break;
+    }
+  }
+  
+  // 3. 特殊规则：重要公司 + 发布信号 = 必须推送
+  const hasImportantCompany = entityMatches.some(entity => 
+    ['google', 'openai', 'anthropic', 'nvidia', 'meta', 'microsoft', 'xai', 'deepseek', 'genspark'].includes(entity.toLowerCase())
+  );
+  
+  const hasReleaseSignal = config.release_signals.launch_verbs.some(verb => 
+    text.includes(verb.toLowerCase())
+  );
+  
+  if (hasImportantCompany && hasReleaseSignal) {
+    score = Math.max(score, 0.95); // 强制高分
+    signals.push('🔥 重要公司产品发布 - 必须推送!');
+  }
+  
+  // 4. 判定结果
+  const shouldPush = score >= 0.3; // 降低阈值，更宽松
+  const confidence = Math.min(score, 1.0);
+  
+  return {
+    shouldPush,
+    confidence,
+    score,
+    signals,
+    entityMatches,
+    reasoning: shouldPush 
+      ? `检测到AI产品发布信号，匹配实体: ${entityMatches.join(', ')}`
+      : '未检测到足够的AI产品发布信号'
+  };
+}
+
+// 📋 更新Worker中的筛选逻辑
+export const ENHANCED_SCREENING_PROMPT = `你是一个专业的AI新闻筛选专家。请判断以下内容是否应该推送。
 
 标题: {title}
 描述: {description}
 
-🎯 筛选目标：捕捉所有AI软硬件产品发布、AI Agent、功能更新等
+🔥 核心原则：AI产品发布必须推送！
 
-✅ 必须包含的内容类型：
-- AI/ML模型发布和更新
-- AI产品和服务上线
-- AI硬件和芯片发布  
-- AI开发工具和平台
-- AI Agent和自动化工具
-- 大厂AI功能更新
-- AI研究和论文
-- AI公司动态和融资
-- AI政策和监管
+✅ 必须推送的内容：
+🏢 重要公司发布：Google、OpenAI、Anthropic、xAI、NVIDIA、Meta、Microsoft、DeepSeek、Qwen、Groq、GenSpark、Manus等
+🤖 AI产品更新：GPT系列、Claude、Gemini、Grok、LLaMA、通义千问、豆包、文心一言等
+🛠️ AI工具平台：GitHub Copilot、Cursor、Replit、Perplexity、Notion AI等
+🚀 AI Agent发布：LangChain、AutoGen、CrewAI、智能体框架等  
+💾 AI硬件发布：H100、A100、TPU、AI芯片、推理加速器等
+📊 重要研究：SOTA模型、基准测试、技术突破等
 
-🔍 关键信号词：
-AI, ML, ChatGPT, Claude, Gemini, GPT, 机器学习, 深度学习, 神经网络, Agent, 自动化, 发布, 更新, 上线
+🎯 关键信号词组合：
+- [公司名] + [发布/推出/上线/宣布]
+- [AI产品] + [更新/版本/新功能]  
+- [模型名] + [开源/发布/可用]
+- [AI硬件] + [发布/上市/可用]
+
+⚠️ 宽松原则：宁可多收录100篇，不要遗漏1个重要AI产品发布！
 
 请返回JSON格式：
 {
   "relevant": true/false,
   "confidence": 0.0-1.0,
-  "category": "产品发布/技术更新/研究论文/公司动态/其他",
-  "reason": "简短原因"
-}
+  "category": "产品发布/功能更新/研究突破/公司动态/硬件发布/开源项目",
+  "key_entities": ["检测到的关键实体"],
+  "release_signals": ["检测到的发布信号"],
+  "reasoning": "详细分析原因",
+  "must_push": true/false // 是否为必推内容
+}`;
 
-原则：宁可多收录，不要遗漏重要AI产品发布！`,
-
-    secondary_screening: `你是一个资深AI行业分析师。请对以下已通过初筛的内容进行深度评估。
-
-标题: {title}  
-描述: {description}
-初筛结果: {primary_result}
-
-📊 评估维度：
-1. AI相关性 (25%)：与AI技术的直接关联度
-2. 产品影响力 (25%)：对AI生态的潜在影响
-3. 创新程度 (20%)：技术或应用的创新性
-4. 市场意义 (15%)：商业和市场价值
-5. 技术深度 (15%)：技术内容的专业程度
-
-🎯 重点关注：
-- 重大AI产品发布（如新模型、新平台）
-- 知名公司的AI功能更新
-- AI基础设施和工具链
-- AI Agent和自动化解决方案
-- 影响行业的AI研究成果
-
-请返回JSON格式：
-{
-  "approved": true/false,
-  "overall_score": 0.0-1.0,
-  "dimension_scores": {
-    "ai_relevance": 0.0-1.0,
-    "product_impact": 0.0-1.0, 
-    "innovation_level": 0.0-1.0,
-    "market_significance": 0.0-1.0,
-    "technical_depth": 0.0-1.0
-  },
-  "content_type": "具体分类",
-  "key_highlights": ["要点1", "要点2", "要点3"],
-  "reasoning": "详细分析原因"
-}
-
-标准：保持开放态度，重点是不遗漏有价值的AI产品和技术更新。`
-  }
-};
-
-// 筛选流程实现
-export async function performLayeredScreening(title, description, env) {
-  console.log('🔍 开始分层AI筛选...');
-  
-  // 第一层：快速筛选
-  const primaryResult = await primaryScreening(title, description, env);
-  console.log('📋 初级筛选结果:', primaryResult);
-  
-  if (!primaryResult.relevant) {
-    // 完全不相关，直接拒绝
-    return {
-      approved: false,
-      stage: 'primary_rejected',
-      result: primaryResult
-    };
-  }
-  
-  // 高置信度直接通过
-  if (primaryResult.confidence >= 0.8) {
-    return {
-      approved: true,
-      stage: 'primary_approved',
-      result: primaryResult
-    };
-  }
-  
-  // 中等置信度进入二级筛选
-  if (primaryResult.confidence >= 0.3) {
-    console.log('🔬 进入二级深度筛选...');
-    const secondaryResult = await secondaryScreening(title, description, primaryResult, env);
-    console.log('📊 二级筛选结果:', secondaryResult);
-    
-    return {
-      approved: secondaryResult.approved,
-      stage: 'secondary_completed',
-      primary_result: primaryResult,
-      secondary_result: secondaryResult
-    };
-  }
-  
-  // 低置信度拒绝
-  return {
-    approved: false,
-    stage: 'primary_low_confidence',
-    result: primaryResult
-  };
-}
-
-async function primaryScreening(title, description, env) {
-  const config = AI_SCREENING_CONFIG.primary_screening;
-  const prompt = AI_SCREENING_CONFIG.prompts.primary_screening
-    .replace('{title}', title)
-    .replace('{description}', description);
-  
-  // 使用Grok或Groq进行快速筛选
-  for (const model of config.models) {
-    try {
-      const result = await callAIModel(model, prompt, env);
-      if (result) {
-        return JSON.parse(result);
-      }
-    } catch (error) {
-      console.log(`❌ ${model} 初筛失败:`, error.message);
-      continue;
-    }
-  }
-  
-  // 全部失败，返回保守结果
-  return { relevant: false, confidence: 0, reason: "AI调用失败" };
-}
-
-async function secondaryScreening(title, description, primaryResult, env) {
-  const prompt = AI_SCREENING_CONFIG.prompts.secondary_screening
-    .replace('{title}', title)
-    .replace('{description}', description)
-    .replace('{primary_result}', JSON.stringify(primaryResult));
-  
-  try {
-    const result = await callAIModel('google/gemini-2.5-flash-thinking-exp', prompt, env);
-    return JSON.parse(result);
-  } catch (error) {
-    console.log('❌ Gemini二筛失败:', error.message);
-    // 失败时采用宽松策略
-    return {
-      approved: primaryResult.confidence >= 0.5,
-      reasoning: "二级筛选失败，基于初筛结果决策"
-    };
-  }
-}
-
-// 辅助函数：调用AI模型
-async function callAIModel(model, prompt, env) {
-  // 这里需要根据实际的API调用方式实现
-  // 暂时返回模拟结果
-  throw new Error('需要实现具体的AI模型调用');
-}
+export default { AI_PRODUCT_SCREENING, intelligentAIScreening, ENHANCED_SCREENING_PROMPT };

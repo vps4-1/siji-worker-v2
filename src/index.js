@@ -2548,40 +2548,51 @@ function isNearSystemScheduledTime(messageTime) {
  * @returns {Object} 筛选结果
  */
 async function performPrimaryScreening(env, title, description, logs) {
-  const prompt = `你是一个AI新闻筛选专家。请快速判断以下内容是否与AI领域相关。
+  const prompt = `你是AI产品发布监控专家。请快速判断以下内容是否为AI产品发布或重要更新。
 
 标题: ${title}
 描述: ${description}
 
-🎯 筛选目标：捕捉所有AI软硬件产品发布、AI Agent、功能更新等
+🔥 AI产品发布必须推送！重点监控公司：
+🏢 Google/DeepMind、OpenAI、Anthropic/Claude、xAI/Grok、NVIDIA、Meta、Microsoft
+🏢 DeepSeek、Qwen/阿里、Groq、GenSpark、Manus、百度、腾讯、字节
 
-✅ 必须包含的内容类型：
-- AI/ML模型发布和更新（ChatGPT、Claude、Gemini、GPT-4等）
-- AI产品和服务上线（AI搜索、AI助手、AI工具等）
-- AI硬件和芯片发布（NVIDIA GPU、AI芯片、TPU等）
-- AI开发工具和平台（LangChain、Hugging Face、Replicate等）
-- AI Agent和自动化工具（智能助手、工作流自动化等）
-- 大厂AI功能更新（Google、Microsoft、OpenAI、Apple等）
-- AI研究和论文（Attention机制、Transformer、强化学习等）
-- AI公司动态和融资（AI创业公司、收购、合作等）
-- AI政策和监管（AI伦理、AI安全、政府政策等）
-- AI基础设施（PostgreSQL for AI、AI云服务、MLOps等）
+✅ 必须捕获的发布类型：
+- 🤖 AI模型发布：GPT-4o、Claude-3.5、Gemini-2.0、Grok-2、DeepSeek-V3、Qwen-2.5
+- 🚀 AI产品上线：ChatGPT功能、Google AI搜索、Copilot更新、Siri升级
+- 🛠️ AI工具发布：LangChain、AutoGen、CrewAI、Agent框架、AI SDK
+- 💾 AI硬件发布：H100、H200、AI芯片、推理加速器、Edge AI设备
+- 🔧 AI平台更新：Hugging Face、Replicate、Runway、Midjourney
+- 📊 AI研究突破：Attention机制、多模态、强化学习、SOTA结果
+- 💰 AI融资收购：AI公司融资、技术收购、重要合作
+- 📜 AI政策法规：AI监管、伦理标准、安全规范
 
-🔍 关键信号词：
-AI, ML, ChatGPT, Claude, Gemini, GPT, LLM, 机器学习, 深度学习, 神经网络, Agent, 自动化, 发布, 更新, 上线, launch, release, announce, beta, API, SDK
+🎯 强化信号词组合检测：
+- [公司] + [发布/推出/宣布/上线/launch/release/unveil]
+- [AI产品] + [更新/版本/新功能/beta/available]
+- [模型名] + [开源/发布/训练/fine-tune]
 
-🏢 重要公司和产品：
-OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Hugging Face, Replicate, Stability AI, Midjourney, Adobe, Salesforce
+⚡ 特殊规则：
+- Google + AI搜索 = 必推 ✅
+- OpenAI + GPT = 必推 ✅  
+- NVIDIA + AI硬件 = 必推 ✅
+- Anthropic + Claude = 必推 ✅
+- xAI + Grok = 必推 ✅
+- DeepSeek + 模型 = 必推 ✅
+- GenSpark + AI = 必推 ✅
 
-请返回JSON格式：
+返回JSON格式：
 {
   "relevant": true/false,
   "confidence": 0.0-1.0,
-  "category": "产品发布/技术更新/研究论文/公司动态/基础设施/其他",
-  "reason": "简短原因（不超过50字）"
+  "category": "产品发布/功能更新/模型发布/硬件发布/融资收购/研究突破",
+  "key_entities": ["检测到的关键实体"],
+  "release_signals": ["发现的发布信号"],
+  "must_push": true/false,
+  "reason": "检测原因"
 }
 
-⭐ 原则：宁可多收录，不要遗漏重要AI产品发布！对于边界情况，倾向于标记为相关。`;
+🚨 核心原则：AI产品发布必须推送！宁多勿漏！`;
 
   // 首选Grok，备选Groq
   const models = ['x-ai/grok-2-1212', 'groq/llama-3.1-70b-versatile'];
@@ -2627,26 +2638,33 @@ async function performSecondaryScreening(env, title, description, primaryResult,
 描述: ${description}
 初筛结果: ${JSON.stringify(primaryResult)}
 
-📊 评估维度（各25%权重）：
-1. AI相关性：与AI技术的直接关联度
-2. 产品影响力：对AI生态的潜在影响
-3. 创新程度：技术或应用的创新性
-4. 市场意义：商业和市场价值
+📊 深度评估维度：
+1. AI产品发布价值 (40%)：是否为重要AI产品/模型/功能发布
+2. 技术创新程度 (25%)：技术突破性和创新水平  
+3. 市场影响力 (20%)：对AI生态和行业的影响
+4. 内容完整性 (15%)：信息的详细程度和可信度
 
-🎯 重点关注（必须通过的类型）：
-- 重大AI模型发布（GPT新版本、Claude更新、Gemini发布等）
-- 知名公司的AI功能更新（Google AI搜索、Microsoft Copilot等）
-- AI基础设施和工具链（LangChain更新、Hugging Face新功能等）
-- AI Agent和自动化解决方案（智能助手、工作流工具等）
-- 影响行业的AI研究成果（重要论文、技术突破等）
-- AI硬件和平台发布（NVIDIA新品、AI芯片、云服务等）
-- AI安全和伦理重要进展（政策法规、安全研究等）
+🔥 必须通过的AI产品发布（零容忍遗漏）：
+- 🤖 重大AI模型：GPT-4o/5、Claude-3.5/4、Gemini-2.0、Grok-2、LLaMA-3、DeepSeek-V3
+- 🚀 AI产品功能：ChatGPT Plus、Google AI搜索、Copilot Pro、Siri升级、Alexa AI
+- 🛠️ AI开发工具：LangChain更新、Cursor AI、GitHub Copilot、Replit Agent
+- 💾 AI硬件平台：NVIDIA H系列、TPU v5、AI芯片、Groq LPU、Cerebras
+- 📱 AI Agent系统：AutoGPT、CrewAI、MetaGPT、智能助手框架
+- 🔬 AI研究突破：Attention变体、多模态融合、RLHF、Constitutional AI
+- 💰 重要商业动态：AI独角兽融资、大厂AI收购、技术授权合作
+- 📊 AI基准突破：SOTA性能、新评测标准、能力边界突破
 
-🚀 优先级产品类型：
-- AI模型和服务发布 (高优先级)
-- 大厂AI功能更新 (高优先级)  
-- AI开发工具和平台 (中高优先级)
-- AI研究和技术突破 (中高优先级)
+⭐ 超高优先级（见到就推）：
+- OpenAI全家桶产品 🏆
+- Google/DeepMind AI技术 🏆  
+- NVIDIA AI硬件生态 🏆
+- Anthropic Claude系列 🏆
+- Meta LLaMA开源 🏆
+- Microsoft AI集成 🏆
+- xAI Grok突破 🏆
+- DeepSeek开源模型 🏆
+- GenSpark AI产品 🏆
+- Manus AI技术 🏆
 - AI硬件和基础设施 (中优先级)
 - AI政策和行业动态 (中优先级)
 
@@ -2655,21 +2673,24 @@ async function performSecondaryScreening(env, title, description, primaryResult,
   "approved": true/false,
   "overall_score": 0.0-1.0,
   "dimension_scores": {
-    "ai_relevance": 0.0-1.0,
-    "product_impact": 0.0-1.0, 
-    "innovation_level": 0.0-1.0,
-    "market_significance": 0.0-1.0
+    "ai_product_release_value": 0.0-1.0,
+    "technical_innovation": 0.0-1.0, 
+    "market_impact": 0.0-1.0,
+    "content_completeness": 0.0-1.0
   },
   "content_type": "具体分类（如：AI模型发布、产品功能更新、技术研究等）",
   "key_highlights": ["要点1", "要点2", "要点3"],
   "reasoning": "详细分析原因（100-200字）"
 }
 
-⭐ 评分标准：
-- 0.7+：重要AI产品/技术，强烈推荐收录
-- 0.5-0.69：有价值的AI内容，建议收录
-- 0.3-0.49：边缘相关，谨慎决策
-- 0.3以下：不相关，建议拒绝
+⭐ AI产品发布评分标准：
+- 0.9+：重大AI产品发布，必须收录 🔥
+- 0.7-0.89：重要AI更新/功能，强烈推荐 💎
+- 0.5-0.69：有价值的AI内容，建议收录 ✅
+- 0.3-0.49：边缘AI相关，宽松通过 ⚠️
+- 0.3以下：完全无关，建议拒绝 ❌
+
+🚨 特别提醒：对于AI产品发布相关的内容，采用宽松策略，倾向于通过！
 
 🎯 决策倾向：保持开放态度，重点是不遗漏有价值的AI产品和技术更新。`;
 

@@ -655,8 +655,8 @@ export default {
         timestamp: new Date().toISOString(),
         version: '2.0.1',
         rss_strategy: 'smart_rotation',
-        telegram_webhook: '/telegram-webhook',
-        features: ['RSS聚合', 'AI处理', 'Telegram集成', 'Payload发布']
+        telegram_webhook: '已移除',
+        features: ['RSS聚合', 'AI处理', 'Payload发布']
       }), {
         headers: { 
           'Content-Type': 'application/json',
@@ -747,45 +747,6 @@ export default {
         return new Response(JSON.stringify({ 
           error: error.message,
           stack: error.stack 
-        }), {
-          status: 500,
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
-      }
-    }
-
-    // 📱 Telegram Webhook 处理 - TG频道 → Payload发布
-    if (path === '/telegram-webhook' && request.method === 'POST') {
-      try {
-        const telegramUpdate = await request.json();
-        console.log('[TG Webhook] 收到更新:', JSON.stringify(telegramUpdate));
-        
-        // 验证是否来自授权的Telegram Bot
-        const botToken = env.TELEGRAM_BOT_TOKEN;
-        if (!botToken) {
-          return new Response(JSON.stringify({ error: '未配置 TELEGRAM_BOT_TOKEN' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-
-        // 处理频道消息
-        const result = await handleTelegramToPayload(env, telegramUpdate);
-        
-        return new Response(JSON.stringify(result), {
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
-      } catch (error) {
-        console.error('[TG Webhook] 处理错误:', error);
-        return new Response(JSON.stringify({ 
-          error: error.message,
-          success: false 
         }), {
           status: 500,
           headers: { 
@@ -1011,6 +972,7 @@ ${finalAiData.summary_en}
         title: finalTitle,
         url: link,
         summary: finalAiData.summary_zh,
+        summary_zh_short: finalAiData.summary_zh_short,
         translation: finalAiData.summary_en,
         language: originalLang
       }, logs);
@@ -1567,7 +1529,10 @@ async function callClaudeAI(env, title, description, purpose = 'screening') {
     const isForcedScreening = purpose === 'forced_screening';
     const isForceTranslation = purpose === 'forced_translation';
     
-    const prompt = isForcedScreening ? 
+    let prompt;
+    
+    if (isForcedScreening) {
+      prompt = 
     `🚨 强制筛选模式：必须将此内容判定为AI相关并生成高质量双语摘要！
 
 【输入】
@@ -1593,8 +1558,9 @@ async function callClaudeAI(env, title, description, purpose = 'screening') {
   "summary_en_short": "Concise English summary (around 200 words)",
   "keywords_zh": ["专业中文关键词1","关键词2","关键词3"],
   "keywords_en": ["professional_keyword1","keyword2","keyword3"]
-}` : 
-    isForceTranslation ? 
+}`;
+    } else if (isForceTranslation) {
+      prompt = 
     `强制翻译模式：必须将以下英文内容翻译为中文，生成完整的双语摘要。
 
 【输入】
@@ -1626,8 +1592,9 @@ async function callClaudeAI(env, title, description, purpose = 'screening') {
 输入标题: "How to Fine-Tune a FLUX Model"
 输出title_zh: "如何微调FLUX模型" (不是 "How to Fine-Tune a FLUX Model")
 
-严格按照要求翻译，title_zh必须是中文！`
-        : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
+严格按照要求翻译，title_zh必须是中文！`;
+    } else {
+      prompt = `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
 
 标题: ${title}
 描述: ${description}
@@ -1927,88 +1894,8 @@ function createTranslationRefinementPrompt(title, description) {
 输入标题: "How to Fine-Tune a FLUX Model"
 输出title_zh: "如何微调FLUX模型" (不是 "How to Fine-Tune a FLUX Model")
 
-严格按照要求翻译，title_zh必须是中文！`
-        : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
-
-标题: ${title}
-描述: ${description}
-
-🔥 重要：以下任何情况都必须判为【相关】！
-
-📋 强制【相关】的关键词（包含任一即算）：
-AI, ML, LLM, GPT, ChatGPT, OpenAI, Claude, Gemini, Google, Microsoft, Amazon, Meta, Apple, NVIDIA, Anthropic, PostgreSQL, 搜索, 机器学习, 深度学习, 算法, 数据库, 云计算, API, SDK, Isaac, Replicate, Attention, Sparse
-
-📋 强制【相关】的产品发布类型：
-- ✅ 任何AI/ML相关产品发布（Isaac 0.1, Google AI搜索等）  
-- ✅ 大厂技术基础设施（PostgreSQL for ChatGPT等）
-- ✅ 开发者工具和平台（Replicate, SDK等）
-- ✅ 研究论文和技术突破（Attention机制等）
-- ✅ AI安全和伦理讨论（虚假信息检测等）
-- ✅ 自动驾驶和机器人技术（NVIDIA DRIVE等）
-
-📋 强制【相关】的公司（发布的任何技术都算）：
-OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hugging Face
-
-🚨 特别强调：AI产品发布必须推送！
-- Isaac模型发布 ✅
-- Google搜索AI功能 ✅  
-- NVIDIA自动驾驶技术 ✅
-- PostgreSQL优化（支撑AI服务）✅
-- 任何大模型相关基础设施 ✅
-
-❌ 仅以下内容判为不相关:
-- 纯娱乐八卦、体育比赛
-- 传统制造业、房地产交易  
-- 个人生活、美食旅游
-- 完全无关的政治新闻
-
-🔑 核心原则：宁可多收录100篇，不可漏掉1个AI产品发布！
-
-要求:
-1. 检测原文语言（中文或英文）
-
-2. **高质量标题翻译**（重点优化）：
-   - 英文标题必须完整翻译为专业中文，不保留英文词汇
-   - 使用准确的技术术语中文译名
-   - 示例：
-     * "Personal Intelligence in AI Mode" → "个人智能AI模式" 
-     * "Run Isaac 0.1 on Replicate" → "在Replicate平台运行Isaac 0.1模型"
-     * "Gated Sparse Attention" → "门控稀疏注意力机制"
-
-3. 生成两个版本的摘要（重要：不要使用"本文"、"文章"、"该研究"、"本研究"、"文章讨论"等开头）：
-   - 长摘要（500字）：全面覆盖要点，包含背景、方法、结论、影响
-   - 短摘要（200字）：直接陈述核心内容，像新闻导语，高信息密度
-
-4. **精准关键词提取**（重点优化）：
-   - 提取3-5个具体的技术关键词，避免通用词汇
-   - 中文关键词：具体技术名称（如"门控稀疏注意力"，"个人智能搜索"，"Isaac模型"）
-   - 英文关键词：准确的技术术语（如"gated sparse attention"，"personal intelligence"，"isaac model"）
-   - 避免：["前沿技术"，"技术创新"，"科技发展"] 等无价值词汇
-
-5. 如果原文是英文：生成中文标题、中文长摘要、中文短摘要、英文长摘要、英文短摘要
-6. 如果原文是中文：保留中文标题、生成中文长摘要、中文短摘要、英文标题、英文长摘要、英文短摘要
-5. 专业术语处理：遇到AI/ML专业术语时，中文后加括号注明英文，如"大语言模型(Large Language Model)"、"强化学习(Reinforcement Learning)"
-6. 提取 3-5 个中文关键词和 3-5 个英文关键词
-7. 如果完全不相关，返回 relevant: false
-
-示例格式：
-长摘要示例：OpenAI发布GPT-4 Turbo，上下文窗口扩展至128K tokens，支持最新知识库至2024年4月。新模型在保持GPT-4性能的同时，显著降低了成本，输入价格降至每千tokens 0.01美元，输出价格为0.03美元。此外，GPT-4 Turbo还新增了图像理解、文本转语音、DALL·E 3集成等功能...
-
-短摘要示例：OpenAI发布GPT-4 Turbo，上下文窗口扩展至128K tokens，成本大幅降低，新增多模态功能...
-
-**重要**: 必须严格返回纯 JSON:
-{
-  "relevant": true,
-  "original_language": "en",
-  "title_zh": "中文标题",
-  "title_en": "English Title",
-  "summary_zh": "长摘要（500字左右）",
-  "summary_zh_short": "短摘要（200字左右）",
-  "summary_en": "Long summary (around 500 words)",
-  "summary_en_short": "Short summary (around 200 words)",
-  "keywords_zh": ["关键词1", "关键词2", "关键词3"],
-  "keywords_en": ["keyword1", "keyword2", "keyword3"]
-}`;
+严格按照要求翻译，title_zh必须是中文！`;
+    }
 
   // 根据用途选择模型
   const modelList = OPENROUTER_CONFIG.models[purpose] || OPENROUTER_CONFIG.models.fallback;
@@ -2217,12 +2104,12 @@ async function sendBilingualToTelegram(env, article, logs) {
   const slug = generateSlug(article.title, article.title_en, article.keywords_en || []);
   const sijigptUrl = `https://sijigpt.com/posts/${slug}`;
   
-  // TG消息格式：中文标题带超链接 + 中文摘要 + 原文链接
+  // TG消息格式：中文标题带超链接 + 中文200字短摘要 + 原文链接
   const message = `📰 斯基GPT发布文章摘要
 
 [**${article.title}**](${sijigptUrl})
 
-${article.summary}
+${article.summary_zh_short || article.summary}
 
 🔗 原文链接: ${article.url}`;
 
@@ -2330,227 +2217,7 @@ function generateSlug(title, titleEn, keywords, forceUnique = false) {
   return finalSlug;
 }
 
-// ==================== 📱 Telegram → Payload 发布功能 ====================
-
-/**
- * 处理Telegram频道消息并发布到Payload CMS
- * @param {Object} env - 环境变量
- * @param {Object} telegramUpdate - Telegram更新对象
- * @returns {Object} 处理结果
- */
-async function handleTelegramToPayload(env, telegramUpdate) {
-  const logs = [];
-  logs.push('[TG→Payload] 开始处理Telegram消息');
-
-  try {
-    // 检查是否为删除操作
-    if (telegramUpdate.edited_channel_post?.text === '' || 
-        telegramUpdate.edited_message?.text === '' ||
-        telegramUpdate.channel_post_deleted || 
-        telegramUpdate.message_deleted) {
-      
-      const messageId = telegramUpdate.edited_channel_post?.message_id || 
-                       telegramUpdate.edited_message?.message_id ||
-                       telegramUpdate.channel_post_deleted?.message_id ||
-                       telegramUpdate.message_deleted?.message_id;
-      
-      if (messageId) {
-        logs.push(`[TG→Payload] 🗑️ 检测到删除操作，消息ID: ${messageId}`);
-        const deleteResult = await deleteFromPayloadCMS(env, messageId);
-        logs.push(`[TG→Payload] ${deleteResult.success ? '✅ 删除成功' : '❌ 删除失败'}`);
-        return { success: deleteResult.success, logs, action: 'delete' };
-      }
-    }
-
-    // 解析Telegram消息
-    const messageData = parseTelegramMessage(telegramUpdate);
-    if (!messageData) {
-      logs.push('[TG→Payload] ❌ 无效的Telegram消息格式或RSS内容被过滤');
-      return { success: false, logs, error: '无效的Telegram消息格式' };
-    }
-
-    logs.push(`[TG→Payload] ✅ 解析消息: ${messageData.text?.substring(0, 100)}...`);
-
-    // 直接发布到Payload CMS (不使用AI处理)
-    const payloadResult = await publishToPayloadCMS(env, messageData);
-    if (payloadResult.success) {
-      logs.push(`[TG→Payload] 🎉 发布成功 ID: ${payloadResult.id}`);
-      
-      // 可选：回复确认消息到Telegram
-      if (env.TG_REPLY_ON_SUCCESS === 'true') {
-        await sendTelegramReply(env, messageData.chat_id, 
-          `✅ 已成功发布到Payload CMS\n🆔 文章ID: ${payloadResult.id}`);
-      }
-      
-      return {
-        success: true,
-        logs,
-        payload_id: payloadResult.id,
-        payload_slug: payloadResult.slug,
-        action: 'publish'
-      };
-    } else {
-      logs.push(`[TG→Payload] ❌ 发布失败: ${payloadResult.error}`);
-      return { success: false, logs, error: payloadResult.error };
-    }
-
-  } catch (error) {
-    logs.push(`[TG→Payload] 💥 处理异常: ${error.message}`);
-    console.error('[TG→Payload Error]', error);
-    return { success: false, logs, error: error.message };
-  }
-}
-
-/**
- * 解析Telegram消息
- * @param {Object} update - Telegram更新对象
- * @returns {Object|null} 解析后的消息数据
- */
-function parseTelegramMessage(update) {
-  // 支持频道帖子和群组消息
-  const message = update.message || update.channel_post || update.edited_message || update.edited_channel_post;
-  
-  if (!message) {
-    console.log('[TG Parser] 未找到有效消息');
-    return null;
-  }
-
-  const messageText = message.text || message.caption || '';
-  
-  // 🚫 检测RSS自动推送内容，避免循环发布
-  const isRSSContent = detectRSSAutoContent(messageText, message);
-  if (isRSSContent) {
-    console.log('[TG Parser] 🔄 检测到RSS自动内容，跳过发布到Payload');
-    return null; // 返回null阻止进一步处理
-  }
-
-  const result = {
-    message_id: message.message_id,
-    chat_id: message.chat?.id,
-    chat_type: message.chat?.type,
-    date: new Date(message.date * 1000).toISOString(),
-    text: messageText,
-    entities: message.entities || [],
-    photo: message.photo || null,
-    document: message.document || null,
-    video: message.video || null,
-    link: null,
-    hashtags: [],
-    is_manual_post: true // 标记为手动发布的内容
-  };
-
-  // 提取链接和标签
-  if (message.entities) {
-    for (const entity of message.entities) {
-      if (entity.type === 'url') {
-        const link = result.text.substring(entity.offset, entity.offset + entity.length);
-        if (!result.link) result.link = link;
-      }
-      if (entity.type === 'text_link') {
-        if (!result.link) result.link = entity.url;
-      }
-      if (entity.type === 'hashtag') {
-        const hashtag = result.text.substring(entity.offset, entity.offset + entity.length);
-        result.hashtags.push(hashtag.replace('#', '')); // 移除#号，只保留标签文本
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
- * 🔍 检测RSS自动推送内容，防止循环发布
- * @param {string} text - 消息文本
- * @param {Object} message - 完整消息对象
- * @returns {boolean} 是否为RSS自动内容
- */
-function detectRSSAutoContent(text, message) {
-  if (!text) return false;
-
-  // 1. 检测Bot发送的消息（通过User-Agent或via_bot字段）
-  if (message.via_bot || message.from?.is_bot) {
-    console.log('[RSS Detection] 🤖 Bot发送的消息');
-    return true;
-  }
-
-  // 2. 检测典型的RSS格式特征
-  const rssPatterns = [
-    /📰.*摘要：/i,           // RSS摘要格式
-    /🔗.*来源：/i,           // RSS来源标识
-    /📊.*发布时间：/i,       // RSS时间格式
-    /🏷️.*标签：/i,          // RSS标签格式
-    /📍.*链接：/i,           // RSS链接格式
-    /由.*自动推送/i,         // 自动推送标识
-    /SijiGPT.*整理/i,        // 系统整理标识
-  ];
-
-  for (const pattern of rssPatterns) {
-    if (pattern.test(text)) {
-      console.log('[RSS Detection] 📋 匹配RSS格式模式:', pattern);
-      return true;
-    }
-  }
-
-  // 3. 检测RSS源域名链接（表示来自RSS聚合）
-  const rssSourceDomains = [
-    'openai.com/blog',
-    'blog.google',
-    'deepmind.com',
-    'huggingface.co/blog',
-    'aws.amazon.com/blogs',
-    'anthropic.com/news',
-    'arxiv.org',
-    'simonwillison.net',
-    'karpathy.github.io',
-    'lilianweng.github.io'
-  ];
-
-  const hasRSSSource = rssSourceDomains.some(domain => 
-    text.toLowerCase().includes(domain.toLowerCase())
-  );
-
-  if (hasRSSSource) {
-    console.log('[RSS Detection] 🔗 包含RSS源域名链接');
-    return true;
-  }
-
-  // 4. 检测双语摘要格式（RSS系统特有）
-  const bilingualPattern = /.*\n.*\n.*English\s*Summary.*\n.*中文摘要.*/i;
-  if (bilingualPattern.test(text)) {
-    console.log('[RSS Detection] 🌐 检测到双语摘要格式');
-    return true;
-  }
-
-  // 5. 检测消息时间和系统推送时间的匹配
-  const messageTime = new Date(message.date * 1000);
-  const isNearScheduledTime = isNearSystemScheduledTime(messageTime);
-  const hasTechKeywords = /AI|人工智能|机器学习|深度学习|技术|开发|编程/i.test(text);
-
-  if (isNearScheduledTime && hasTechKeywords && text.length > 300) {
-    console.log('[RSS Detection] ⏰ 时间和内容特征匹配RSS推送');
-    return true;
-  }
-
-  return false; // 不是RSS内容，允许发布到Payload
-}
-
-/**
- * 检查是否接近系统定时推送时间
- * @param {Date} messageTime - 消息时间
- * @returns {boolean} 是否接近推送时间
- */
-function isNearSystemScheduledTime(messageTime) {
-  const hour = messageTime.getUTCHours();
-  const minute = messageTime.getUTCMinutes();
-  
-  // 系统推送时间：0, 4, 7, 11, 14 UTC (±10分钟容错)
-  const scheduledHours = [0, 4, 7, 11, 14];
-  
-  return scheduledHours.some(schedHour => {
-    return hour === schedHour && minute <= 10; // 推送后10分钟内
-  });
-}
+// ==================== 📱 Telegram发布功能（仅RSS推送） ====================
 
 /**
  * 第一层AI筛选：使用Grok/Groq进行快速宽松筛选
@@ -2736,297 +2403,7 @@ async function performSecondaryScreening(env, title, description, primaryResult,
  * @param {Object} messageData - 消息数据
  * @returns {Object} 增强后的内容
  */
-async function enhanceContentWithAI(env, messageData) {
-  try {
-    const prompt = `请帮我优化以下Telegram频道消息，使其更适合发布到技术博客：
-
-原始内容: ${messageData.text}
-
-请生成：
-1. 优化后的标题（简洁有力）
-2. 结构化的描述（包含要点总结）
-3. 相关的技术标签
-4. SEO友好的简短摘要
-
-以JSON格式返回：
-{
-  "title": "优化后的标题",
-  "description": "结构化描述",
-  "summary": "SEO摘要",
-  "tags": ["标签1", "标签2", "标签3"],
-  "category": "技术分类"
-}`;
-
-    const aiResult = await callOpenRouterAI(env, prompt, 'enhancement');
-    if (aiResult && aiResult.trim()) {
-      try {
-        const enhanced = JSON.parse(aiResult);
-        return {
-          ...messageData,
-          title: enhanced.title || messageData.title,
-          description: enhanced.description || messageData.description,
-          summary: enhanced.summary || messageData.text.substring(0, 300),
-          ai_tags: enhanced.tags || [],
-          ai_category: enhanced.category || 'Technology'
-        };
-      } catch (parseError) {
-        console.log('[AI Enhancement] JSON解析失败，使用原始内容');
-      }
-    }
-  } catch (error) {
-    console.log('[AI Enhancement] AI增强失败:', error.message);
-  }
-
-  return messageData;
-}
-
-/**
- * 发布内容到Payload CMS
- * @param {Object} env - 环境变量
- * @param {Object} content - 内容数据
- * @returns {Object} 发布结果
- */
-async function publishToPayloadCMS(env, content) {
-  try {
-    const payloadEndpoint = env.PAYLOAD_API_ENDPOINT;
-    const payloadEmail = env.PAYLOAD_EMAIL;
-    const payloadPassword = env.PAYLOAD_PASSWORD;
-    
-    if (!payloadEndpoint) {
-      return { 
-        success: false, 
-        error: '未配置Payload CMS连接信息 (PAYLOAD_API_ENDPOINT)' 
-      };
-    }
-
-    // 🧪 模拟模式检测
-    if (payloadEndpoint.startsWith('mock://')) {
-      console.log('[Payload] 🧪 模拟模式激活');
-      
-      // 模拟成功响应
-      const mockId = `mock_${Date.now()}`;
-      const mockSlug = generateSlugFromContent(content.text);
-      
-      console.log(`[Payload] 📄 模拟发布: ${content.text.substring(0, 50)}...`);
-      console.log(`[Payload] 🏷️  标签: ${content.hashtags.join(', ')}`);
-      console.log(`[Payload] 📅 时间: ${content.date}`);
-      
-      return {
-        success: true,
-        id: mockId,
-        slug: mockSlug,
-        mockMode: true,
-        previewData: {
-          title: content.title || 'Telegram频道消息',
-          content: content.text,
-          tags: content.hashtags,
-          source: 'telegram_manual',
-          publishedAt: content.date,
-          link: content.link,
-          chat_id: content.chat_id,
-          message_id: content.message_id
-        }
-      };
-    }
-    
-    // 🔐 使用与RSS系统相同的登录方式
-    let token;
-    
-    if (!payloadEmail || !payloadPassword) {
-      return {
-        success: false,
-        error: '未配置Payload登录凭据 (PAYLOAD_EMAIL, PAYLOAD_PASSWORD)'
-      };
-    }
-    
-    console.log('[Payload] 🔐 开始登录...');
-    const loginResponse = await fetch(`${payloadEndpoint}/api/users/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: payloadEmail,
-        password: payloadPassword
-      })
-    });
-    
-    if (!loginResponse.ok) {
-      const errorText = await loginResponse.text();
-      return {
-        success: false,
-        error: `Payload登录失败: ${errorText}`
-      };
-    }
-    
-    const loginData = await loginResponse.json();
-    token = loginData.token;
-    console.log('[Payload] ✅ 登录成功');
-
-    // 构建Payload文档数据 - 简化版本，不使用AI处理
-    const payloadDoc = {
-      title: content.title || content.text.substring(0, 100), // 使用前100字符作为标题
-      title_en: content.title || content.text.substring(0, 100),
-      content: content.text, // 直接使用原始文本内容
-      slug: generateSlugFromContent(content.text),
-      publishedAt: content.date,
-      source: {
-        name: 'Telegram Manual',
-        url: content.link,
-        author: 'SijiGPT Bot'
-      },
-      original_language: 'zh', // 假设是中文
-      summary_zh: {
-        content: content.text,
-        keywords: content.hashtags.map(tag => ({ keyword: tag }))
-      },
-      _status: 'published'
-    };
-
-    console.log('[Payload] 📄 准备发布文档...');
-
-    const response = await fetch(`${payloadEndpoint}/api/posts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `JWT ${token}`, // 使用动态获取的token
-        'User-Agent': 'SijiGPT-TelegramBot/1.0'
-      },
-      body: JSON.stringify(payloadDoc)
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('[Payload] ✅ 发布成功');
-      return {
-        success: true,
-        id: result.doc?.id || result.id,
-        slug: result.doc?.slug || result.slug,
-        url: `${payloadEndpoint}/${result.doc?.slug || result.slug}`
-      };
-    } else {
-      const errorText = await response.text();
-      console.log('[Payload] ❌ 发布失败:', errorText);
-      
-      return {
-        success: false,
-        error: `Payload API错误 (${response.status}): ${errorText}`,
-        status: response.status
-      };
-    }
-
-  } catch (error) {
-    return {
-      success: false,
-      error: `发布到Payload失败: ${error.message}`
-    };
-  }
-}
-
-/**
- * 从Payload CMS删除对应的文章
- * @param {Object} env - 环境变量
- * @param {number} telegramMessageId - Telegram消息ID
- * @returns {Object} 删除结果
- */
-async function deleteFromPayloadCMS(env, telegramMessageId) {
-  try {
-    const payloadEndpoint = env.PAYLOAD_API_ENDPOINT;
-    const payloadApiKey = env.PAYLOAD_API_KEY;
-    
-    if (!payloadEndpoint || !payloadApiKey) {
-      return { 
-        success: false, 
-        error: '未配置Payload CMS连接信息' 
-      };
-    }
-
-    // 1. 先查找对应的文章
-    const searchUrl = `${payloadEndpoint}/api/posts?where[sourceData.telegram_message_id][equals]=${telegramMessageId}`;
-    const searchResponse = await fetch(searchUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `API-Key ${payloadApiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!searchResponse.ok) {
-      return { success: false, error: `查找失败: ${searchResponse.status}` };
-    }
-
-    const searchResult = await searchResponse.json();
-    
-    if (!searchResult.docs || searchResult.docs.length === 0) {
-      return { success: false, error: `未找到对应的文章 (TG消息ID: ${telegramMessageId})` };
-    }
-
-    // 2. 删除找到的文章
-    const article = searchResult.docs[0];
-    const deleteResponse = await fetch(`${payloadEndpoint}/api/posts/${article.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `API-Key ${payloadApiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (deleteResponse.ok) {
-      return {
-        success: true,
-        id: article.id,
-        telegram_message_id: telegramMessageId
-      };
-    } else {
-      const errorText = await deleteResponse.text();
-      return {
-        success: false,
-        error: `删除失败 (${deleteResponse.status}): ${errorText}`
-      };
-    }
-
-  } catch (error) {
-    return {
-      success: false,
-      error: `删除操作失败: ${error.message}`
-    };
-  }
-}
-async function sendTelegramReply(env, chatId, message) {
-  try {
-    const botToken = env.TELEGRAM_BOT_TOKEN;
-    if (!botToken) return;
-
-    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        parse_mode: 'Markdown'
-      })
-    });
-  } catch (error) {
-    console.log('[TG Reply] 发送回复失败:', error.message);
-  }
-}
-
-/**
- * 生成内容的slug
- * @param {string} text - 文本内容
- * @returns {string} slug
- */
-function generateSlugFromContent(text) {
-  if (!text) {
-    return `tg-post-${Date.now().toString(36)}`;
-  }
-  
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 50) || `tg-post-${Date.now().toString(36)}`;
-}
+// Telegram到Payload发布功能已删除 - 仅保留RSS到Telegram推送
 
 /**
  * 获取Telegram测试页面HTML
@@ -3094,53 +2471,12 @@ async function getTestPageHTML() {
     <div class="container">
         <h2>🚫 防循环发布机制</h2>
         <div class="info">
-            <strong>✅ 智能识别RSS自动内容</strong><br>
-            • 检测Bot发送的消息<br>
-            • 识别RSS格式特征（摘要、来源、标签等）<br>
-            • 检测RSS源域名链接<br>
-            • 匹配双语摘要格式<br>
-            • 时间匹配系统推送时段<br>
-            <strong>🎯 只发布手动原创内容到Payload（不使用AI处理）</strong><br>
-            <strong>🗑️ 支持同步删除：TG删除消息时自动删除Payload文章</strong>
+            <strong>📱 Telegram功能</strong><br>
+            • RSS文章 → Telegram频道推送 ✅ 已启用<br>
+            • 中文200字短摘要格式 📝<br>
+            • 文章标题链接到SijiGPT网站 🔗<br>
+            <strong>⚠️ TG频道→Payload功能已移除</strong>
         </div>
-    </div>
-
-    <div class="container">
-        <h2>🔗 Webhook 端点</h2>
-        <div class="endpoint" id="webhookUrl">
-            https://siji-worker-v2.chengqiangshang.workers.dev/telegram-webhook
-        </div>
-        <button onclick="copyToClipboard('webhookUrl')">复制链接</button>
-        <button onclick="testWebhook()">测试连接</button>
-    </div>
-
-    <div class="container">
-        <h2>🧪 模拟 Telegram 消息测试</h2>
-        <textarea id="testMessage" placeholder="编辑测试消息JSON...">{
-  "message": {
-    "message_id": 12345,
-    "chat": {
-      "id": -1001234567890,
-      "type": "channel",
-      "title": "斯基GPT测试频道"
-    },
-    "date": ${Math.floor(Date.now() / 1000)},
-    "text": "🚀 新AI突破：GPT-5正式发布！\\n\\nOpenAI今天宣布了革命性的GPT-5模型，在推理、创造性和多模态理解方面实现重大突破。\\n\\n核心亮点：\\n• 推理能力提升300%\\n• 支持视频、音频、文本多模态\\n• 实时交互响应\\n• 更强的代码生成能力\\n\\n这标志着人工智能进入新的发展阶段。\\n\\n#GPT5 #OpenAI #人工智能 #技术突破\\n\\nhttps://openai.com/gpt-5-announcement",
-    "entities": [
-      {"type": "hashtag", "offset": 150, "length": 5},
-      {"type": "hashtag", "offset": 156, "length": 7},
-      {"type": "hashtag", "offset": 164, "length": 5},
-      {"type": "hashtag", "offset": 170, "length": 5},
-      {"type": "url", "offset": 180, "length": 35}
-    ]
-  }
-}</textarea>
-        <br>
-        <button onclick="sendTestMessage()" id="sendBtn">🚀 发送测试消息</button>
-        <button onclick="loadPreset('manual')">✏️ 手动内容模板</button>
-        <button onclick="loadPreset('rss')">🤖 RSS内容模板(被拦截)</button>
-        <button onclick="loadPreset('news')">📰 新闻模板</button>
-        <button onclick="loadPreset('tech')">💻 技术模板</button>
     </div>
 
     <div class="container">

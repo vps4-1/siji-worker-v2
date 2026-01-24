@@ -544,8 +544,8 @@ async function batchCheckDuplicates(env, articles, logs) {
   
   logs.push(`[批量去重] 📊 批内去重: ${articles.length} -> ${uniqueArticles.length} 篇`);
   
-  // 第二步：KV批量检查（严格限制检查数量）
-  const maxKvChecks = 20; // 严格限制KV检查数量，避免API过载
+  // 第二步：KV批量检查（超级严格限制）
+  const maxKvChecks = 10; // 超级严格限制KV检查数量
   const articlesToCheck = uniqueArticles.slice(0, maxKvChecks);
   
   const finalUnique = [];
@@ -834,11 +834,14 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
   
   const dailyTarget = parseInt(env.DAILY_TARGET || '20', 10);
   
-  // 🚨 紧急修复：限制RSS源数量避免API过载
-  const maxRssFeeds = 30; // 限制为30个源，避免KV请求过多
+  // 🚨 超级严格限制：彻底解除API频率限制
+  const maxRssFeeds = 15; // 进一步限制为15个源
   const limitedRssFeeds = rssFeeds.slice(0, maxRssFeeds);
   
-  logs.push(`[开始] 目标: ${dailyTarget} 篇, RSS 源: ${limitedRssFeeds.length}/${rssFeeds.length} 个 (限制避免API过载)`);
+  // 🔥 API限制紧急模式：严重时跳过去重检查
+  const emergencyMode = env.EMERGENCY_NO_DEDUP === 'true';
+  
+  logs.push(`[开始] 目标: ${dailyTarget} 篇, RSS 源: ${limitedRssFeeds.length}/${rssFeeds.length} 个`);
   logs.push(`[AI] 使用: ${env.AI_PROVIDER || 'openrouter'}`);
 
   // 🚀 阶段1优化：并行抓取有限RSS源（避免API过载）
@@ -885,12 +888,18 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
     
   logs.push(`[RSS] 📊 并行抓取完成，共获得 ${allArticles.length} 篇文章`);
   
-  // 🚀 优化：批量去重检查，减少KV请求
-  logs.push(`[去重] 🔍 开始批量去重检查...`);
-  const uniqueArticles = await batchCheckDuplicates(env, allArticles, logs);
-  logs.push(`[去重] ✅ 去重完成，剩余 ${uniqueArticles.length} 篇独特文章`);
+  let uniqueArticles;
+  if (emergencyMode) {
+    logs.push(`[紧急模式] ⚡ 跳过去重检查，直接处理文章避免API限制`);
+    uniqueArticles = allArticles.slice(0, dailyTarget * 2); // 取前40篇直接处理
+  } else {
+    // 🚀 优化：批量去重检查，减少KV请求
+    logs.push(`[去重] 🔍 开始批量去重检查...`);
+    uniqueArticles = await batchCheckDuplicates(env, allArticles, logs);
+    logs.push(`[去重] ✅ 去重完成，剩余 ${uniqueArticles.length} 篇独特文章`);
+  }
   
-  // 现在逐篇处理已去重的文章（保持安全的顺序处理）
+  // 现在逐篇处理已筛选的文章（保持安全的顺序处理）
   for (const { title, link, description, feedUrl } of uniqueArticles) {
     if (published >= dailyTarget) {
       logs.push(`[完成] 已达目标 ${dailyTarget} 篇，停止处理`);

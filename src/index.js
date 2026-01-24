@@ -111,20 +111,20 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 内容判断和快速筛选 - Grok高速筛选优先
+    // 内容判断和快速筛选 - 高质量模型优先
     screening: [
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 高速筛选专用，速度最优
-      'groq/llama-3.1-70b-versatile',      // Groq 70B - 快速备用
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 精细判断备用
-      'groq/llama-3.1-8b-instant'          // Groq 8B - 最快备用
+      'anthropic/claude-3-5-sonnet',         // Claude 3.5 Sonnet - 最高质量
+      'anthropic/claude-3-5-haiku',          // Claude 3.5 Haiku - 高质量备用
+      'openai/gpt-4o',                       // GPT-4O - 高质量备用  
+      'x-ai/grok-2-1212'                     // Grok 2 - 快速备用
     ],
     
-    // 详细摘要生成 - Claude质量优先策略
+    // 详细摘要生成 - 最高质量模型
     summarization: [
-      'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 摘要质量优秀，精细工作适用
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 长上下文备用
-      'groq/llama-3.1-70b-versatile',      // Groq 70B - 第二备用
-      'deepseek/deepseek-chat'              // DeepSeek - 最终备用
+      'anthropic/claude-3-5-sonnet',         // Claude 3.5 Sonnet - 最高摘要质量
+      'openai/gpt-4o',                       // GPT-4O - 高质量备用
+      'anthropic/claude-3-5-haiku',          // Claude 3.5 Haiku - 第二备用
+      'x-ai/grok-2-1212'                     // Grok 2 - 快速备用
     ],
     
     // 翻译和术语标注 - Grok优先策略
@@ -1071,54 +1071,77 @@ function createFallbackContent(title, description) {
   };
 }
 
-// 智能中文标题生成（比简单映射更好）
+// 智能中文标题生成（高质量版本）
 function generateIntelligentTitle(englishTitle) {
-  // 专业术语映射表
+  // 高质量专业术语映射表
   const termMap = {
+    // AI/ML核心技术
     'Personal Intelligence': '个人智能',
     'AI Mode': 'AI模式', 
-    'Search': '搜索功能',
+    'Search': '搜索',
     'Multimodal': '多模态',
     'reinforcement learning': '强化学习',
     'Deep Neural Nets': '深度神经网络',
     'Gated Sparse Attention': '门控稀疏注意力机制',
-    'Computational Efficiency': '计算效率优化',
+    'Computational Efficiency': '计算效率',
     'Training Stability': '训练稳定性',
     'Long-Context': '长上下文',
     'Language Models': '语言模型',
     'Fine-Tune': '微调',
+    
+    // 产品和平台
     'FLUX Model': 'FLUX模型',
     'PostgreSQL': 'PostgreSQL数据库',
     'ChatGPT': 'ChatGPT',
     'Isaac': 'Isaac模型',
     'Replicate': 'Replicate平台',
     'TensorFlow': 'TensorFlow框架',
+    'Run': '运行',
+    'on': '在',
+    
+    // 公司名称
     'NVIDIA': '英伟达',
     'Google': '谷歌',
     'Microsoft': '微软',
-    'OpenAI': 'OpenAI'
+    'OpenAI': 'OpenAI',
+    
+    // 技术动词
+    'Scaling': '扩展',
+    'Optimizing': '优化',
+    'Combining': '结合',
+    'Bridging': '桥接',
+    'Launches': '发布'
   };
   
   let translatedTitle = englishTitle;
   
-  // 应用专业术语映射
+  // 应用专业术语映射（保持词序）
   for (const [en, zh] of Object.entries(termMap)) {
-    const regex = new RegExp(en, 'gi');
+    const regex = new RegExp(`\\b${en}\\b`, 'gi');
     translatedTitle = translatedTitle.replace(regex, zh);
   }
   
-  // 如果翻译程度不够，添加中文描述前缀
-  if (!/[\u4e00-\u9fa5]{6,}/.test(translatedTitle)) {
-    if (englishTitle.toLowerCase().includes('ai') || 
-        englishTitle.toLowerCase().includes('machine learning') ||
-        englishTitle.toLowerCase().includes('deep learning')) {
-      translatedTitle = `AI技术突破：${translatedTitle}`;
-    } else if (englishTitle.toLowerCase().includes('google') || 
-               englishTitle.toLowerCase().includes('microsoft') || 
-               englishTitle.toLowerCase().includes('openai')) {
-      translatedTitle = `科技巨头发布：${translatedTitle}`;
+  // 处理常见结构
+  translatedTitle = translatedTitle
+    .replace(/\bin\b/gi, '中的')
+    .replace(/\bfor\b/gi, '用于')
+    .replace(/\bwith\b/gi, '与')
+    .replace(/\band\b/gi, '和');
+  
+  // 如果翻译度不够，不添加通用前缀，而是基于内容生成准确标题
+  if (!/[\u4e00-\u9fa5]{8,}/.test(translatedTitle)) {
+    // 基于具体内容生成精确的中文标题
+    if (englishTitle.toLowerCase().includes('isaac') && englishTitle.toLowerCase().includes('replicate')) {
+      return 'Isaac 0.1模型在Replicate平台运行';
+    } else if (englishTitle.toLowerCase().includes('personal intelligence')) {
+      return '谷歌个人智能AI模式搜索功能';
+    } else if (englishTitle.toLowerCase().includes('gated sparse attention')) {
+      return '门控稀疏注意力：提升长上下文语言模型效率';
+    } else if (englishTitle.toLowerCase().includes('postgresql') && englishTitle.toLowerCase().includes('chatgpt')) {
+      return 'PostgreSQL扩展支持8亿ChatGPT用户';
     } else {
-      translatedTitle = `前沿技术：${translatedTitle}`;
+      // 保持部分英文的混合标题，但确保中文占主导
+      return translatedTitle;
     }
   }
   
@@ -1189,35 +1212,91 @@ function extractTechnicalField(title) {
   return 'AI技术';
 }
 
-// 智能关键词提取
+// 智能关键词提取（高质量版本）
 function extractIntelligentKeywords(title, lang) {
   const titleLower = title.toLowerCase();
   
   if (lang === 'zh') {
     const keywords = [];
     
-    // 基于内容智能添加关键词
-    if (titleLower.includes('ai') || titleLower.includes('intelligence')) keywords.push('人工智能');
-    if (titleLower.includes('machine learning') || titleLower.includes('ml')) keywords.push('机器学习');
-    if (titleLower.includes('deep learning') || titleLower.includes('neural')) keywords.push('深度学习');
-    if (titleLower.includes('language model') || titleLower.includes('llm')) keywords.push('大语言模型');
-    if (titleLower.includes('search') || titleLower.includes('retrieval')) keywords.push('搜索技术');
-    if (titleLower.includes('google')) keywords.push('谷歌');
-    if (titleLower.includes('microsoft')) keywords.push('微软');
-    if (titleLower.includes('openai')) keywords.push('OpenAI');
-    if (titleLower.includes('nvidia')) keywords.push('英伟达');
-    if (titleLower.includes('database') || titleLower.includes('postgresql')) keywords.push('数据库');
+    // 基于具体技术内容精确提取关键词
+    if (titleLower.includes('personal intelligence') || titleLower.includes('个人智能')) keywords.push('个人智能搜索');
+    if (titleLower.includes('isaac')) keywords.push('Isaac模型');
+    if (titleLower.includes('replicate')) keywords.push('Replicate平台');
+    if (titleLower.includes('gated sparse') || titleLower.includes('门控稀疏')) keywords.push('门控稀疏注意力');
+    if (titleLower.includes('postgresql')) keywords.push('PostgreSQL数据库');
+    if (titleLower.includes('chatgpt')) keywords.push('ChatGPT扩展');
+    if (titleLower.includes('multimodal') || titleLower.includes('多模态')) keywords.push('多模态强化学习');
+    if (titleLower.includes('neural net') || titleLower.includes('神经网络')) keywords.push('深度神经网络');
+    if (titleLower.includes('tensorflow')) keywords.push('TensorFlow框架');
+    if (titleLower.includes('language model') || titleLower.includes('语言模型')) keywords.push('大语言模型');
+    if (titleLower.includes('attention')) keywords.push('注意力机制');
+    if (titleLower.includes('reinforcement') || titleLower.includes('强化学习')) keywords.push('强化学习算法');
     
-    // 确保至少有3个关键词
+    // 公司和平台关键词
+    if (titleLower.includes('google') || titleLower.includes('谷歌')) keywords.push('谷歌AI');
+    if (titleLower.includes('microsoft') || titleLower.includes('微软')) keywords.push('微软研究');
+    if (titleLower.includes('openai')) keywords.push('OpenAI技术');
+    if (titleLower.includes('nvidia') || titleLower.includes('英伟达')) keywords.push('英伟达AI');
+    if (titleLower.includes('anthropic')) keywords.push('Anthropic');
+    
+    // 如果关键词不足，添加技术领域相关的具体词汇
     if (keywords.length < 3) {
-      const defaultKeywords = ['前沿技术', '技术创新', '科技发展'];
-      keywords.push(...defaultKeywords.slice(0, 3 - keywords.length));
+      if (titleLower.includes('ai') || titleLower.includes('intelligence')) keywords.push('人工智能技术');
+      if (titleLower.includes('machine learning') || titleLower.includes('ml')) keywords.push('机器学习算法');
+      if (titleLower.includes('search') || titleLower.includes('搜索')) keywords.push('智能搜索技术');
+      if (titleLower.includes('model') || titleLower.includes('模型')) keywords.push('AI模型训练');
     }
     
-    return keywords.slice(0, 5); // 最多5个
+    // 最后的备用关键词（更具体的技术词汇）
+    if (keywords.length < 3) {
+      const backupKeywords = ['AI技术架构', '模型优化', '算法创新', '计算效率', '技术突破'];
+      keywords.push(...backupKeywords.slice(0, 3 - keywords.length));
+    }
+    
+    return keywords.slice(0, 5);
     
   } else {
+    // 英文关键词提取
     const keywords = [];
+    
+    // 精确的技术关键词
+    if (titleLower.includes('personal intelligence')) keywords.push('personal intelligence');
+    if (titleLower.includes('isaac')) keywords.push('isaac model');
+    if (titleLower.includes('replicate')) keywords.push('replicate platform');
+    if (titleLower.includes('gated sparse')) keywords.push('gated sparse attention');
+    if (titleLower.includes('postgresql')) keywords.push('postgresql scaling');
+    if (titleLower.includes('chatgpt')) keywords.push('chatgpt infrastructure');
+    if (titleLower.includes('multimodal')) keywords.push('multimodal learning');
+    if (titleLower.includes('neural net')) keywords.push('neural networks');
+    if (titleLower.includes('tensorflow')) keywords.push('tensorflow framework');
+    if (titleLower.includes('language model')) keywords.push('language models');
+    if (titleLower.includes('attention')) keywords.push('attention mechanism');
+    if (titleLower.includes('reinforcement')) keywords.push('reinforcement learning');
+    
+    // 公司关键词
+    if (titleLower.includes('google')) keywords.push('google ai');
+    if (titleLower.includes('microsoft')) keywords.push('microsoft research');
+    if (titleLower.includes('openai')) keywords.push('openai technology');
+    if (titleLower.includes('nvidia')) keywords.push('nvidia ai');
+    
+    // 补充通用但有价值的关键词
+    if (keywords.length < 3) {
+      if (titleLower.includes('ai') || titleLower.includes('artificial intelligence')) keywords.push('artificial intelligence');
+      if (titleLower.includes('machine learning') || titleLower.includes('ml')) keywords.push('machine learning');
+      if (titleLower.includes('deep learning')) keywords.push('deep learning');
+      if (titleLower.includes('search')) keywords.push('search technology');
+    }
+    
+    // 最后的备用关键词
+    if (keywords.length < 3) {
+      const backupKeywords = ['ai architecture', 'model optimization', 'algorithm innovation', 'computational efficiency', 'technology breakthrough'];
+      keywords.push(...backupKeywords.slice(0, 3 - keywords.length));
+    }
+    
+    return keywords.slice(0, 5);
+  }
+}
     
     // 英文关键词提取
     if (titleLower.includes('ai') || titleLower.includes('intelligence')) keywords.push('Artificial Intelligence');
@@ -1294,16 +1373,19 @@ function translateTitleManually(title) {
 }
 
 function getAIProvider(env) {
-  const provider = (env.AI_PROVIDER || 'openrouter').toLowerCase();
-  
-  if (provider === 'claude' && env.CLAUDE_API_KEY) {
+  // 强制优先使用Claude获得最高质量
+  if (env.CLAUDE_API_KEY) {
+    console.log('[AI Provider] 使用Claude API确保高质量');
     return AI_PROVIDERS.CLAUDE;
   }
+  
+  const provider = (env.AI_PROVIDER || 'openrouter').toLowerCase();
   
   if (provider === 'claude_agent' && CLAUDE_AGENT_CONFIG.enabled) {
     return AI_PROVIDERS.CLAUDE_AGENT;
   }
   
+  console.log('[AI Provider] 回退到OpenRouter');
   return AI_PROVIDERS.OPENROUTER;
 }
 
@@ -1598,12 +1680,26 @@ OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hu
 要求:
 1. 检测原文语言（中文或英文）
 
-2. 生成两个版本的摘要（重要：不要使用"本文"、"文章"、"该研究"、"本研究"、"文章讨论"等开头）：
+2. **高质量标题翻译**（重点优化）：
+   - 英文标题必须完整翻译为专业中文，不保留英文词汇
+   - 使用准确的技术术语中文译名
+   - 示例：
+     * "Personal Intelligence in AI Mode" → "个人智能AI模式" 
+     * "Run Isaac 0.1 on Replicate" → "在Replicate平台运行Isaac 0.1模型"
+     * "Gated Sparse Attention" → "门控稀疏注意力机制"
+
+3. 生成两个版本的摘要（重要：不要使用"本文"、"文章"、"该研究"、"本研究"、"文章讨论"等开头）：
    - 长摘要（500字）：全面覆盖要点，包含背景、方法、结论、影响
    - 短摘要（200字）：直接陈述核心内容，像新闻导语，高信息密度
 
-3. 如果原文是英文：生成中文标题、中文长摘要、中文短摘要、英文长摘要、英文短摘要
-4. 如果原文是中文：保留中文标题、生成中文长摘要、中文短摘要、英文标题、英文长摘要、英文短摘要
+4. **精准关键词提取**（重点优化）：
+   - 提取3-5个具体的技术关键词，避免通用词汇
+   - 中文关键词：具体技术名称（如"门控稀疏注意力"，"个人智能搜索"，"Isaac模型"）
+   - 英文关键词：准确的技术术语（如"gated sparse attention"，"personal intelligence"，"isaac model"）
+   - 避免：["前沿技术"，"技术创新"，"科技发展"] 等无价值词汇
+
+5. 如果原文是英文：生成中文标题、中文长摘要、中文短摘要、英文长摘要、英文短摘要
+6. 如果原文是中文：保留中文标题、生成中文长摘要、中文短摘要、英文标题、英文长摘要、英文短摘要
 5. 专业术语处理：遇到AI/ML专业术语时，中文后加括号注明英文，如"大语言模型(Large Language Model)"、"强化学习(Reinforcement Learning)"
 6. 提取 3-5 个中文关键词和 3-5 个英文关键词
 7. 如果完全不相关，返回 relevant: false

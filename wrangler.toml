@@ -22,8 +22,8 @@ AI_PROVIDER = "openrouter"
 DAILY_TARGET = "10"
 TELEGRAM_CHANNEL = "@sijigpt"
 
-# 🚨 API限制紧急模式：跳过去重检查（仅在API过载时启用）
-EMERGENCY_NO_DEDUP = "false"
+# 🚨 API限制紧急模式：跳过去重检查（临时启用解决推送问题）
+EMERGENCY_NO_DEDUP = "true"
 
 # 模型优先级：Claude > Grok > 千问
 OPENROUTER_MODELS = "groq/llama-3.1-8b-instant,anthropic/claude-3-5-haiku,x-ai/grok-2-1212,groq/llama-3.1-70b-versatile"

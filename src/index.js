@@ -1083,10 +1083,12 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       };
       
       // 如果没有API Key或者是紧急模式，直接使用备用策略
-      if (!env.OPENROUTER_API_KEY || env.EMERGENCY_NO_DEDUP === 'true') {
-        console.log('[OpenRouter] 🔄 使用备用AI策略');
+      if (!env.OPENROUTER_API_KEY || env.EMERGENCY_NO_DEDUP === 'true' || env.EMERGENCY_NO_DEDUP === true) {
+        console.log('[OpenRouter] 🔄 使用备用AI策略 - 原因:', !env.OPENROUTER_API_KEY ? '无API Key' : '紧急模式');
         return processFallbackAI(title, description, purpose);
       }
+      
+      console.log('[OpenRouter] ✅ 使用真实AI - API Key有效，非紧急模式');
       
       // 简化的提示词创建
       const prompt = customPrompt || `请分析以下内容并返回JSON格式结果：

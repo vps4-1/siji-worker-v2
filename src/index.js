@@ -592,6 +592,179 @@ async function checkDuplicates(env, article, logs) {
   return false;
 }
 
+// ==================== D1+KV混合架构 ====================
+// 🚀 彻底解决API频率限制的混合架构
+
+/**
+ * D1+KV混合去重：两层架构彻底解决API限制
+ */
+async function hybridBatchDeduplication(env, articles, logs) {
+  if (!articles || articles.length === 0) {
+    return [];
+  }
+  
+  logs.push(`[混合架构] 🔄 开始处理 ${articles.length} 篇文章`);
+  
+  // 第1层：KV热缓存快速过滤（最近7天）
+  const kvFiltered = await hybridKVCheck(env, articles, logs);
+  logs.push(`[KV缓存] ⚡ 快速过滤: ${articles.length} → ${kvFiltered.length} 篇`);
+  
+  if (kvFiltered.length === 0) {
+    return [];
+  }
+  
+  // 第2层：D1数据库深度检查（全历史）
+  const finalUnique = await hybridD1Check(env, kvFiltered, logs);
+  logs.push(`[D1数据库] 🗄️ 深度去重: ${kvFiltered.length} → ${finalUnique.length} 篇`);
+  
+  return finalUnique;
+}
+
+/**
+ * KV缓存批量检查（热数据）
+ */
+async function hybridKVCheck(env, articles, logs) {
+  try {
+    const maxCheck = 30; // 限制KV检查数量
+    const checkArticles = articles.slice(0, maxCheck);
+    
+    const kvKeys = checkArticles.map(article => 
+      'recent_url:' + normalizeUrl(article.link)
+    );
+    
+    const kvResults = await Promise.allSettled(
+      kvKeys.map(key => env.ARTICLES_KV.get(key))
+    );
+    
+    const existingUrls = new Set();
+    kvResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        existingUrls.add(normalizeUrl(checkArticles[index].link));
+      }
+    });
+    
+    const filtered = articles.filter(article => 
+      !existingUrls.has(normalizeUrl(article.link))
+    );
+    
+    logs.push(`[KV缓存] 📊 缓存命中: ${existingUrls.size} 篇`);
+    return filtered;
+    
+  } catch (error) {
+    logs.push(`[KV缓存] ❌ 检查错误: ${error.message}，跳过KV检查`);
+    return articles;
+  }
+}
+
+/**
+ * D1数据库批量检查（全历史数据）
+ */
+async function hybridD1Check(env, articles, logs) {
+  if (!env.DB) {
+    logs.push(`[D1数据库] ⚠️ 数据库未配置，跳过D1检查`);
+    return articles;
+  }
+  
+  if (articles.length === 0) {
+    return [];
+  }
+  
+  try {
+    const maxCheck = 100;
+    const checkArticles = articles.slice(0, maxCheck);
+    
+    const urls = checkArticles.map(article => {
+      const url = normalizeUrl(article.link);
+      return `'${url.replace(/'/g, "''")}'`;
+    });
+    
+    const urlParams = urls.join(',');
+    const query = `SELECT url FROM articles WHERE url IN (${urlParams})`;
+    const result = await env.DB.prepare(query).all();
+    
+    const existingUrls = new Set(result.results.map(row => row.url));
+    
+    const uniqueArticles = articles.filter(article => 
+      !existingUrls.has(normalizeUrl(article.link))
+    );
+    
+    logs.push(`[D1数据库] 📊 数据库命中: ${existingUrls.size} 篇`);
+    return uniqueArticles;
+    
+  } catch (error) {
+    logs.push(`[D1数据库] ❌ 查询错误: ${error.message}，回退到KV结果`);
+    return articles;
+  }
+}
+
+/**
+ * 批量保存到D1数据库
+ */
+async function saveProcessedArticlesToD1(env, processedArticles, logs) {
+  if (!env.DB || !processedArticles || processedArticles.length === 0) {
+    return;
+  }
+  
+  try {
+    const batchSize = 25; // 分批处理
+    const batches = [];
+    for (let i = 0; i < processedArticles.length; i += batchSize) {
+      batches.push(processedArticles.slice(i, i + batchSize));
+    }
+    
+    for (const batch of batches) {
+      const values = batch.map(article => {
+        const url = normalizeUrl(article.link).replace(/'/g, "''");
+        const title = (article.title || '').substring(0, 300).replace(/'/g, "''");
+        const titleHash = generateTitleHash(article.title);
+        const content = (article.description || '').substring(0, 1000).replace(/'/g, "''");
+        const summaryZh = (article.summary_zh || '').substring(0, 500).replace(/'/g, "''");
+        const summaryEn = (article.summary_en || '').substring(0, 500).replace(/'/g, "''");
+        const feed = (article.feedUrl || '').replace(/'/g, "''");
+        
+        return `('${url}', '${title}', '${titleHash}', '${content}', '${summaryZh}', '${summaryEn}', '${feed}', 1, 0)`;
+      }).join(',');
+      
+      const insertSQL = `
+        INSERT OR IGNORE INTO articles (
+          url, title, title_hash, content, summary_zh, summary_en, source_feed, ai_processed, published_to_payload
+        ) VALUES ${values}
+      `;
+      
+      await env.DB.prepare(insertSQL).run();
+    }
+    
+    logs.push(`[D1数据库] ✅ 保存 ${processedArticles.length} 篇文章到数据库`);
+    
+    // 异步更新KV缓存
+    updateKVCacheAsync(env, processedArticles, logs);
+    
+  } catch (error) {
+    logs.push(`[D1数据库] ❌ 保存错误: ${error.message}`);
+  }
+}
+
+/**
+ * 异步更新KV缓存
+ */
+function updateKVCacheAsync(env, articles, logs) {
+  setTimeout(async () => {
+    try {
+      const timestamp = Date.now().toString();
+      const operations = articles.map(article => {
+        const key = 'recent_url:' + normalizeUrl(article.link);
+        return env.ARTICLES_KV.put(key, timestamp, { expirationTtl: 7 * 24 * 3600 });
+      });
+      
+      await Promise.allSettled(operations);
+      logs.push(`[KV缓存] 🔄 异步更新 ${articles.length} 个缓存`);
+      
+    } catch (error) {
+      console.error('[KV缓存] 异步更新失败:', error);
+    }
+  }, 1000);
+}
+
 /**
  * 保存去重记录
  * 同时保存 URL、标题哈希、内容指纹三个键
@@ -893,10 +1066,10 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
     logs.push(`[紧急模式] ⚡ 跳过去重检查，直接处理文章避免API限制`);
     uniqueArticles = allArticles.slice(0, dailyTarget * 2); // 取前40篇直接处理
   } else {
-    // 🚀 优化：批量去重检查，减少KV请求
-    logs.push(`[去重] 🔍 开始批量去重检查...`);
-    uniqueArticles = await batchCheckDuplicates(env, allArticles, logs);
-    logs.push(`[去重] ✅ 去重完成，剩余 ${uniqueArticles.length} 篇独特文章`);
+    // 🚀 D1+KV混合架构：彻底解决API限制
+    logs.push(`[混合架构] 🔄 启用D1+KV混合去重，支持大规模处理...`);
+    uniqueArticles = await hybridBatchDeduplication(env, allArticles, logs);
+    logs.push(`[混合架构] ✅ 混合去重完成，剩余 ${uniqueArticles.length} 篇独特文章`);
   }
   
   // 现在逐篇处理已筛选的文章（保持安全的顺序处理）
@@ -1065,6 +1238,20 @@ ${finalAiData.summary_en}
       
       published++;
       publishedArticles.push({ title: finalTitle, url: link });
+      
+      // 🚀 保存到D1数据库（混合架构）
+      const articleData = {
+        link,
+        title: finalTitle,
+        description,
+        summary_zh: finalAiData.summary_zh,
+        summary_en: finalAiData.summary_en,
+        keywords_zh: finalAiData.keywords_zh,
+        keywords_en: finalAiData.keywords_en,
+        feedUrl
+      };
+      await saveProcessedArticlesToD1(env, [articleData], logs);
+      
       logs.push(`[发布] ✅ 成功 (${published}/${dailyTarget})`);
       
     } catch (error) {

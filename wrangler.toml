@@ -9,6 +9,11 @@ enabled = true
 binding = "ARTICLES_KV"
 id = "206167570b0b48a3a1ef05c516bd2d24"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "siji-articles-db"
+database_id = "2419a877-1090-4007-b8db-162c9f2027c9"
+
 [triggers]
 crons = [
   "0 0 * * *",   # 08:00 北京时间
@@ -24,6 +29,9 @@ TELEGRAM_CHANNEL = "@sijigpt"
 
 # 🚨 API限制紧急模式：跳过去重检查（临时启用解决推送问题）
 EMERGENCY_NO_DEDUP = "true"
+
+# 🤖 OpenRouter AI API配置
+OPENROUTER_API_KEY = "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"
 
 # 模型优先级：Claude > Grok > 千问
 OPENROUTER_MODELS = "groq/llama-3.1-8b-instant,anthropic/claude-3-5-haiku,x-ai/grok-2-1212,groq/llama-3.1-70b-versatile"

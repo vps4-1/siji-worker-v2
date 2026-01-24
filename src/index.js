@@ -544,8 +544,8 @@ async function batchCheckDuplicates(env, articles, logs) {
   
   logs.push(`[批量去重] 📊 批内去重: ${articles.length} -> ${uniqueArticles.length} 篇`);
   
-  // 第二步：KV批量检查（限制检查数量）
-  const maxKvChecks = 50; // 限制KV检查数量
+  // 第二步：KV批量检查（严格限制检查数量）
+  const maxKvChecks = 20; // 严格限制KV检查数量，避免API过载
   const articlesToCheck = uniqueArticles.slice(0, maxKvChecks);
   
   const finalUnique = [];

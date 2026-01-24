@@ -111,29 +111,36 @@ const CLAUDE_CONFIG = {
 const OPENROUTER_CONFIG = {
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
   models: {
-    // 🔍 文章筛选和相关性判断 - 使用快速模型
+    // 🔍 第一层筛选 - Grok/Groq 快速宽松筛选
     screening: [
-      'x-ai/grok-2-1212',                        // Grok 2 - 快速筛选主力
+      'x-ai/grok-2-1212',                        // Grok 2 - AI产品发布专门检测
       'groq/llama-3.1-70b-versatile',           // Groq 70B - 快速筛选备用
       'groq/llama-3.1-8b-instant'               // Groq 8B - 超快速备用
     ],
     
-    // 📝 文章内容生成和翻译 - 使用高质量模型  
+    // 🔬 第二层深度筛选 - Gemini 2.5 Pro 语义理解
+    secondary_screening: [
+      'google/gemini-2.0-flash-exp',            // Gemini 2.0 Flash - 深度语义分析主力
+      'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - 高质量备用
+      'anthropic/claude-3-5-haiku'              // Claude 3.5 Haiku - 次级备用
+    ],
+    
+    // 📝 文章内容生成和翻译 - Claude/Gemini 高质量模型  
     content_generation: [
       'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - 主力内容生成
-      'google/gemini-2.0-flash-exp',            // Gemini 2.5 Pro - 高质量备用
+      'google/gemini-2.0-flash-exp',            // Gemini 2.0 Flash - 高质量备用
       'anthropic/claude-3-5-haiku'              // Claude 3.5 Haiku - 次级备用
     ],
     
     // 🎯 双语摘要和标题优化 - 最高质量模型
     translation_refinement: [
       'anthropic/claude-3-5-sonnet',             // Claude 3.5 Sonnet - 翻译精修
-      'google/gemini-2.0-flash-exp'             // Gemini 2.5 Pro - 多语言优化
+      'google/gemini-2.0-flash-exp'             // Gemini 2.0 Flash - 多语言优化
     ],
     
     // 翻译和术语标注 - Grok优先策略
     translation: [
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 多语言+成本优化
+      'x-ai/grok-2-1212',                   // Grok 2 - 多语言+成本优化
       'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 备用Agent能力
       'groq/llama-3.1-70b-versatile',      // Groq 70B - 专业术语
       'deepseek/deepseek-chat'              // DeepSeek - 技术术语备用
@@ -141,7 +148,7 @@ const OPENROUTER_CONFIG = {
     
     // 默认降级序列 - Grok优先策略
     fallback: [
-      'x-ai/grok-2-1212',                   // Grok 4.1 Fast - 速度+成本+理解力的完美组合
+      'x-ai/grok-2-1212',                   // Grok 2 - 速度+成本+理解力的完美组合
       'anthropic/claude-3-5-haiku',         // Claude 3.5 Haiku - 备用高质量
       'groq/llama-3.1-8b-instant',         // Groq 8B - 超速备用
       'deepseek/deepseek-chat'              // DeepSeek - 最终备用
@@ -2696,7 +2703,7 @@ async function performSecondaryScreening(env, title, description, primaryResult,
 
   try {
     logs.push(`[二级筛选] 🔬 使用 Gemini 2.5 Pro 进行深度分析...`);
-    const result = await callOpenRouterAI(env, title, description, 'secondary_screening', 'google/gemini-2.5-flash-thinking-exp', prompt);
+    const result = await callOpenRouterAI(env, title, description, 'secondary_screening', 'google/gemini-2.0-flash-exp', prompt);
     
     if (result && result.approved !== undefined) {
       logs.push(`[二级筛选] ✅ Gemini 分析完成: 通过=${result.approved}, 综合评分=${result.overall_score}`);

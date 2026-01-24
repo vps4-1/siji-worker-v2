@@ -895,19 +895,27 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
         logs.push(`[AI] 🚨 强制收录: ${title.substring(0, 50)}...`);
       }
       
-      // 如果是强制收录但AI判断为不相关，创建基本的双语内容
-      const finalAiData = aiData?.relevant ? aiData : {
-        relevant: true,
-        original_language: 'en',
-        title_zh: title,
-        title_en: title,
-        summary_zh: description || title,
-        summary_zh_short: (description || title).substring(0, 200),
-        summary_en: description || title,
-        summary_en_short: (description || title).substring(0, 200),
-        keywords_zh: ['AI技术', '产品发布', '科技新闻'],
-        keywords_en: ['AI Technology', 'Product Release', 'Tech News']
-      };
+      // 如果是强制收录但AI判断为不相关，调用AI生成翻译内容
+      let finalAiData;
+      if (shouldForceInclude && (!aiData || !aiData.relevant)) {
+        // 强制收录：使用AI重新生成完整双语内容
+        logs.push(`[AI] 🔄 强制收录，重新生成双语内容...`);
+        const forceAiData = await callAI(env, title, description, 'forced_translation');
+        finalAiData = forceAiData || {
+          relevant: true,
+          original_language: 'en',
+          title_zh: title,
+          title_en: title,
+          summary_zh: description || title,
+          summary_zh_short: (description || title).substring(0, 200),
+          summary_en: description || title,
+          summary_en_short: (description || title).substring(0, 200),
+          keywords_zh: ['AI技术', '产品发布', '科技新闻'],
+          keywords_en: ['AI Technology', 'Product Release', 'Tech News']
+        };
+      } else {
+        finalAiData = aiData;
+      }
       
       // 新的数据结构：AI 已返回完整双语内容
       const originalLang = finalAiData.original_language || "en";
@@ -985,8 +993,8 @@ ${finalAiData.summary_en}
       await sendBilingualToTelegram(env, {
         title: finalTitle,
         url: link,
-        summary: aiData.summary_zh,
-        translation: aiData.summary_en,
+        summary: finalAiData.summary_zh,
+        translation: finalAiData.summary_en,
         language: originalLang
       }, logs);
       
@@ -994,7 +1002,7 @@ ${finalAiData.summary_en}
       await saveDuplicateKeys(env, {
         link,
         title: finalTitle,
-        summary: aiData.summary
+        summary: finalAiData.summary_zh || description
       });
       
       published++;
@@ -1042,7 +1050,7 @@ async function callAI(env, title, description, purpose = 'summarization') {
   
   try {
     if (provider === AI_PROVIDERS.CLAUDE) {
-      return await callClaudeAI(env, title, description);
+      return await callClaudeAI(env, title, description, purpose);
     } else if (provider === AI_PROVIDERS.CLAUDE_AGENT) {
       return await callClaudeAgent(env, title, description);
     } else {
@@ -1064,8 +1072,28 @@ async function callAI(env, title, description, purpose = 'summarization') {
   }
 }
 
-async function callClaudeAI(env, title, description) {
-    const prompt = `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
+async function callClaudeAI(env, title, description, purpose = 'screening') {
+    const isForceTranslation = purpose === 'forced_translation';
+    const prompt = isForceTranslation ? 
+    `强制翻译模式：为以下内容生成完整的双语摘要（无论是否AI相关）。
+
+标题: ${title}
+描述: ${description}
+
+必须返回以下JSON格式：
+{
+  "relevant": true,
+  "original_language": "en/zh",
+  "title_zh": "中文标题",
+  "title_en": "English Title", 
+  "summary_zh": "详细中文摘要（约500字）",
+  "summary_zh_short": "简短中文摘要（约200字）",
+  "summary_en": "Detailed English summary (around 500 words)",
+  "summary_en_short": "Short English summary (around 200 words)",
+  "keywords_zh": ["关键词1","关键词2","关键词3"],
+  "keywords_en": ["keyword1","keyword2","keyword3"]
+}`
+    : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
 
 标题: ${title}
 描述: ${description}
@@ -1158,7 +1186,27 @@ OpenAI, Google, Microsoft, Meta, Amazon, Apple, NVIDIA, Anthropic, Replicate, Hu
 }
 
 async function callOpenRouterAI(env, title, description, purpose = 'fallback') {
-  const prompt = `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
+  const isForceTranslation = purpose === 'forced_translation';
+  const prompt = isForceTranslation ?
+  `强制翻译模式：为以下内容生成完整的双语摘要（无论是否AI相关）。
+
+标题: ${title}
+描述: ${description}
+
+必须返回以下JSON格式：
+{
+  "relevant": true,
+  "original_language": "en/zh",
+  "title_zh": "中文标题",
+  "title_en": "English Title", 
+  "summary_zh": "详细中文摘要（约500字）",
+  "summary_zh_short": "简短中文摘要（约200字）",
+  "summary_en": "Detailed English summary (around 500 words)",
+  "summary_en_short": "Short English summary (around 200 words)",
+  "keywords_zh": ["关键词1","关键词2","关键词3"],
+  "keywords_en": ["keyword1","keyword2","keyword3"]
+}`
+  : `判断以下内容是否与人工智能领域相关，并生成完整的双语摘要。
 
 标题: ${title}
 描述: ${description}

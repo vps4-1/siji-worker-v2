@@ -28,13 +28,13 @@ DAILY_TARGET = "10"
 TELEGRAM_CHANNEL = "@sijigpt"
 
 # 🚨 API限制紧急模式：跳过去重检查（临时启用解决推送问题）
-EMERGENCY_NO_DEDUP = "true"
+EMERGENCY_NO_DEDUP = "false"
 
 # 🤖 OpenRouter AI API配置
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 # 模型优先级：Claude > Grok > 千问
-OPENROUTER_MODELS = "groq/llama-3.1-8b-instant,anthropic/claude-3-5-haiku,x-ai/grok-2-1212,groq/llama-3.1-70b-versatile"
+OPENROUTER_MODELS = "anthropic/claude-3-5-haiku:beta,x-ai/grok-beta,qwen/qwen-2.5-72b-instruct,google/gemini-2.0-flash-thinking-exp:free"
 
 # 📡 Telegram 配置 (生产环境)
 TELEGRAM_BOT_TOKEN = "8357258804:AAFStW2STWQIEIKbe0jLtXoz51r5-B_MsGc"

@@ -884,6 +884,9 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
       // AI 判定与双语内容生成 - 使用更宽松的筛选策略
       const aiData = await callAI(env, title, description, 'screening');
       
+      // 声明finalAiData变量
+      let finalAiData;
+      
       // 优化后的强制收录逻辑：确保AI产品发布优先
       if (!aiData || !aiData.relevant) {
         if (shouldForceInclude) {

@@ -899,7 +899,22 @@ async function aggregateArticles(env, cronExpression = '0 15 * * *') {
           } else {
             // AI失败，创建结构化的基础内容确保发布
             logs.push(`[AI] ⚠️ AI失败，生成基础内容确保发布`);
-            finalAiData = createFallbackContent(title, description);
+            
+            // 直接创建基础内容，避免函数调用问题
+            const intelligentTitle = generateIntelligentTitle(title);
+            finalAiData = {
+              relevant: true,
+              original_language: 'en',
+              title_zh: intelligentTitle,
+              title_en: title,
+              summary_zh: `${intelligentTitle}是${extractTechnicalField(title)}领域的重要进展。${description || '该技术展示了最新的研究成果和应用前景。'}这一创新为相关技术发展提供了新的思路，预期将在AI技术应用中产生积极影响。`,
+              summary_zh_short: `${intelligentTitle}：${extractTechnicalField(title)}领域的技术突破，展现了重要的应用价值和发展前景。`,
+              summary_en: `${title} represents a significant advancement in the field of technology. ${description || 'This development showcases the latest research achievements and application prospects.'} The innovation provides new insights for related technological development and is expected to have a positive impact on AI technology applications.`,
+              summary_en_short: `${title}: A technological breakthrough with important application value and development prospects.`,
+              keywords_zh: extractIntelligentKeywords(title, 'zh'),
+              keywords_en: extractIntelligentKeywords(title, 'en')
+            };
+            
             logs.push(`[AI] 📝 基础内容已生成，确保AI产品发布不遗漏`);
           }
         } else {

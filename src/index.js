@@ -159,7 +159,12 @@ const CLAUDE_AGENT_CONFIG = {
 
 // 核心RSS源：每次必抓，最高质量AI内容
 const CORE_RSS_FEEDS = [
-  // 15个顶级核心源 - 保守稳定配置
+  'https://deepmind.google/blog/feed/basic/',
+  'https://feeds.feedburner.com/nvidiablog',
+  'https://developer.nvidia.com/blog/feed',
+  'https://txt.cohere.ai/rss/',
+  'https://blog.eleuther.ai/index.xml',
+  'https://www.blog.langchain.com/rss/',
   'https://openai.com/blog/rss.xml',
   'https://blog.google/technology/ai/rss/',
   'https://www.deepmind.com/blog/rss.xml',
@@ -173,7 +178,6 @@ const CORE_RSS_FEEDS = [
   'https://arxiv.org/rss/cs.AI',
   'https://simonwillison.net/atom/entries/',
   'https://sebastianraschka.com/blog/index.xml',
-  'https://developer.nvidia.com/blog/feed',
   'https://www.anthropic.com/news/rss.xml'
 ];
 
@@ -580,21 +584,26 @@ function extractSourceName(url) {
     const hostname = parsed.hostname.replace("www.", "");
     
     const sourceMap = {
-      "openai.com": "OpenAI Blog",
-      "anthropic.com": "Anthropic News",
-      "blog.google": "Google AI Blog",
-      "deepmind.com": "DeepMind Blog",
-      "deepmind.google": "DeepMind Blog",
-      "ai.meta.com": "Meta AI Blog",
-      "microsoft.com": "Microsoft Research",
-      "huggingface.co": "Hugging Face Blog",
-      "aws.amazon.com": "AWS Machine Learning Blog",
-      "blog.langchain.dev": "LangChain Blog",
-      "lilianweng.github.io": "Lil'Log",
-      "karpathy.github.io": "Andrej Karpathy Blog",
-      "distill.pub": "Distill",
-      "arxiv.org": "arXiv",
-      "news.ycombinator.com": "Hacker News"
+"openai.com": "OpenAI Blog",
+"anthropic.com": "Anthropic News",
+"blog.google": "Google AI Blog",
+"deepmind.com": "DeepMind Blog",
+"deepmind.google": "DeepMind Blog",
+"ai.meta.com": "Meta AI Blog",
+"microsoft.com": "Microsoft Research",
+"huggingface.co": "Hugging Face Blog",
+"aws.amazon.com": "AWS Machine Learning Blog",
+"blog.langchain.dev": "LangChain Blog",
+"lilianweng.github.io": "Lil'Log",
+"karpathy.github.io": "Andrej Karpathy Blog",
+"distill.pub": "Distill",
+"arxiv.org": "arXiv",
+"news.ycombinator.com": "Hacker News",
+      "feeds.feedburner.com/nvidiablog": "NVIDIA Blog",
+      "developer.nvidia.com": "NVIDIA Developer Blog",
+      "txt.cohere.ai": "Cohere Blog",
+      "blog.eleuther.ai": "EleutherAI Blog",
+      "blog.langchain.com": "LangChain Blog"
     };
     
     for (const [domain, name] of Object.entries(sourceMap)) {

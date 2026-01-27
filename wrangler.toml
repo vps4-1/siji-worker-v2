@@ -52,4 +52,7 @@ PAYLOAD_PASSWORD = "61381185"
 # PAYLOAD_API_ENDPOINT = "mock://test-mode"
 # PAYLOAD_API_KEY = "mock_test_key"
 
+# Cloudflare API Token
+CLOUDFLARE_API_TOKEN = "zI5nmaT6R_3kcSE1S_xtikzmLF8-iCmUWZi7hsQM"
+
 # RSS sources are now defined in the code to avoid 5.1KB environment variable limit
